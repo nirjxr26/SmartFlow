@@ -127,18 +127,6 @@ npm run dev
 cd backend
 php -S localhost:8000
 
-### 4. Setup database
-
-php setup.php
-php update_schema.php
-php setup_tasks.php
-
-### 5. Open app
-
-http://localhost:5173
-
----
-
 ## 🔑 Default Login
 
 Email: [admin@example.com](mailto:admin@example.com)
