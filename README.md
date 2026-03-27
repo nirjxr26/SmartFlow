@@ -1,73 +1,153 @@
-# Welcome to your Lovable project
+🚀 FlowStone (SmartFlow)
 
-## Project info
+Enterprise-grade team operations platform for managing tasks, approvals, resources, and workflows with a modern UI and scalable backend.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+📌 Overview
 
-## How can I edit this code?
+FlowStone is a full-stack work management system designed to streamline organizational workflows. It provides task tracking, approval pipelines, resource allocation, analytics, and role-based administration — all in a clean, responsive interface.
 
-There are several ways of editing your application.
-
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+✨ Key Features
+🔐 Authentication & Authorization
+Secure login system (email/password)
+Role-based access (Admin / User)
+Protected routes and session persistence
+📊 Dashboard
+Real-time KPI metrics
+Task trends & resource usage charts
+Activity feed
+✅ Task Management
+Create, update, delete tasks
+Filter, search, and status tracking
+Task detail modal view
+Priority & deadline handling
+📝 Approval Workflow
+Approve / reject system
+Status categorization (Pending, Approved, Rejected)
+Confirmation dialogs
+🧱 Resource Management
+Add and manage resources
+Status tracking and categorization
+Search and filtering
+📈 Reports & Analytics
+Visual charts (Bar, Pie, Area)
+KPI summaries
+CSV export
+🔔 Notifications System
+Real-time notifications
+Mark as read / delete
+Unread filtering
+⚙️ User Settings & Profile
+Profile editing
+Password updates
+Avatar upload
+Theme switching (Light/Dark)
+Preferences toggles
+🛡️ Admin Panel
+Restricted access
+System-wide insights
+User and resource monitoring
+🧰 Tech Stack
+Frontend
+React 18 + TypeScript
+Vite
+Tailwind CSS + shadcn/ui
+Framer Motion (animations)
+Recharts (analytics)
+React Query (state management)
+React Hook Form + Zod (validation)
+Backend
+PHP (REST APIs)
+MySQL (PDO)
+Modular API architecture
+🏗️ Architecture
+Frontend (React)
+   ↓ API Calls
+Backend (PHP REST)
+   ↓
+MySQL Database
+Stateless API design
+Client-side caching via React Query
+Clean separation of concerns
+⚙️ Installation & Setup
+1. Clone the repository
+git clone <your-repo-url>
+cd FlowStone-1
+2. Install frontend dependencies
+npm install
 npm run dev
-```
+3. Start backend server
+cd backend
+php -S localhost:8000
+4. Setup database
+php setup.php
+php update_schema.php
+php setup_tasks.php
+5. Access the app
+http://localhost:5173
+🔑 Default Login
+Email: admin@flowstone.com
+Password: password123
+📂 Project Structure
+FlowStone/
+│
+├── src/
+│   ├── pages/ (Dashboard, Tasks, Approvals, etc.)
+│   ├── components/
+│   ├── App.tsx
+│   └── main.tsx
+│
+├── backend/
+│   ├── API endpoints (PHP)
+│   ├── DB setup scripts
+│
+├── public/
+├── package.json
+└── index.html
+🔌 Core API Endpoints
+Feature	Endpoint
+Auth	login.php, register.php
+Profile	profile.php, update_profile.php
+Tasks	tasks.php, create_task.php, etc.
+Approvals	approvals.php
+Resources	resources.php
+Notifications	notifications.php
+Reports	reports.php
+Admin	users.php, dashboard APIs
+🚀 What Makes This Project Stand Out
+Clean enterprise UI/UX
+Full task lifecycle + approval system
+Role-based architecture
+Real-time analytics & dashboards
+Modular PHP REST backend
+Scalable and production-ready structure
+🔐 Security Considerations
+Uses PDO (prevents SQL injection)
+Token-based authentication
+CORS enabled (needs tightening for production)
 
-**Edit a file directly in GitHub**
+Recommended improvements:
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+JWT with refresh tokens
+HTTPS enforcement
+Rate limiting & CSRF protection
+📈 Future Improvements
+Unit & integration testing (Vitest, RTL)
+API documentation (Swagger/OpenAPI)
+Real-time updates via WebSockets
+Deployment pipeline (CI/CD)
+Performance optimization
+🤝 Contribution Guide
+Fork the repo
+Create a feature branch
+Commit changes with clear messages
+Submit a Pull Request
+🧾 Summary
 
-**Use GitHub Codespaces**
+FlowStone is a complete enterprise workflow solution combining:
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+Task & approval management
+Resource tracking
+Analytics dashboards
+Role-based control
 
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+Built with modern frontend practices and a structured backend, it reflects real-world scalable system design.
