@@ -24,8 +24,12 @@ const navItems = [
   { icon: Settings, label: "Settings", path: "/settings" },
 ];
 
-export function Sidebar() {
-  const [collapsed, setCollapsed] = useState(false);
+interface SidebarProps {
+  collapsed: boolean;
+  onToggleCollapsed: () => void;
+}
+
+export function Sidebar({ collapsed, onToggleCollapsed }: SidebarProps) {
   const [isAdmin, setIsAdmin] = useState(false);
   const location = useLocation();
 
@@ -164,7 +168,7 @@ export function Sidebar() {
       {/* Bottom Section */}
       <div className="p-3 border-t border-sidebar-border">
         <button
-          onClick={() => setCollapsed(!collapsed)}
+          onClick={onToggleCollapsed}
           className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sidebar-muted hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground transition-all duration-200"
         >
           <motion.div
