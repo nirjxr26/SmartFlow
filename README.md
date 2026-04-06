@@ -1,169 +1,132 @@
-# 🚀 FlowStone (SmartFlow)
+<div align="center">
+  <h1>FlowStone</h1>
+  <p>Enterprise-grade team operations platform for managing tasks, approvals, resources, and workflows with a modern React frontend and PHP backend.</p>
+</div>
 
-> Enterprise-grade team operations platform for managing tasks, approvals, resources, and workflows with a modern and scalable backend.
+## Problem Statement
 
----
+Many organizations struggle with disconnected work management tools, manual approval tracking, and limited visibility into team resources. FlowStone solves this by unifying task assignment, approval workflows, resource planning, and analytics in one place.
 
-## 📌 Overview
+## Features
 
-FlowStone is a full-stack work management system designed to streamline organizational workflows.
-
-It provides:
-
-* Task tracking
-* Approval pipelines
-* Resource allocation
-* Analytics
-* Role-based administration
-
-All in a clean, responsive interface.
-
----
-
-## Key Features
-
-### Authentication & Authorization
-
-* Secure login system (email/password)
-* Role-based access (Admin / User)
-* Protected routes and session persistence
-
-### Dashboard
-
-* Real-time KPI metrics
-* Task trends & resource usage charts
-* Activity feed
+### Authentication & Access Control
+- **Secure login:** Email/password authentication with session support.
+- **Role-based access:** Admin and user permissions control dashboard access and management flows.
+- **Profile management:** Users can update profile details, department, bio, and avatar.
 
 ### Task Management
+- **Task lifecycle tracking:** Create, assign, update, and delete tasks with status workflows.
+- **Priority and deadline handling:** Tasks support priority levels, due dates, and assignees.
+- **Task detail views:** Drill into task descriptions, assignee info, and progress details.
 
-* Create, update, delete tasks
-* Filter, search, and status tracking
-* Task detail modal view
-* Priority & deadline handling
-
-### Approval Workflow
-
-* Approve / reject system
-* Status categorization (Pending, Approved, Rejected)
-* Confirmation dialogs
+### Approvals & Workflow
+- **Approval pipelines:** Review and approve task requests with status categorization.
+- **Approval tracking:** View pending, approved, and rejected approval items in one place.
+- **Confirmation dialogs:** Reduce accidental actions with built-in confirmations.
 
 ### Resource Management
+- **Resource cards:** Track team resources, availability, and utilization.
+- **Search and filtering:** Filter resources and tasks by status, priority, and assignee.
+- **Overview dashboards:** Surface resource summaries and workload distribution.
 
-* Add and manage resources
-* Status tracking and categorization
-* Search and filtering
+### Reporting & Notifications
+- **Analytics dashboards:** Visualize metrics with charts and KPI summaries.
+- **Activity feed:** Monitor recent updates and team actions.
+- **Notifications:** Real-time notification center for important updates and alerts.
 
-### Reports & Analytics
+## Architecture
 
-* Visual charts (Bar, Pie, Area)
-* KPI summaries
-* CSV export
+<p align="center">
+  <img src="./diagram/Architecture.png" alt="FlowStone Architecture" width="720" height="420" style="max-width:100%; object-fit:contain;" />
+</p>
 
-### Notifications System
+## Tech Stack
 
-* Real-time notifications
-* Mark as read / delete
-* Unread filtering
+**Frontend:** React, Vite, Tailwind CSS, shadcn/ui
+**Backend:** PHP, REST APIs
+**Database:** MySQL (via PHP PDO)
+**UI / UX:** Radix primitives, Framer Motion, Recharts
 
-### Settings & Profile
+## How It Works
 
-* Profile editing
-* Password updates
-* Avatar upload
-* Theme switching (Light/Dark)
-* Preferences toggles
+1. Users sign in through the frontend and authenticate against the PHP backend.
+2. The backend serves user profiles, tasks, approvals, and resource data.
+3. Users create and update tasks, with status changes reflected in the dashboard.
+4. Approval actions are processed through backend endpoints and displayed in summary views.
+5. Reports and notifications keep users informed of relevant activity.
 
-### Admin Panel
+## Installation / Setup
 
-* Restricted access
-* System-wide insights
-* User and resource monitoring
-
----
-
-## 🧰 Tech Stack
-
-### Frontend
-
-* React 18 + TypeScript
-* Vite
-* Tailwind CSS + shadcn/ui
-* Framer Motion
-* Recharts
-* React Query
-* React Hook Form + Zod
-
-### Backend
-
-* PHP (REST APIs)
-* MySQL (PDO)
-
----
-
-## 🏗️ Architecture
-
-Frontend (React)
-↓
-Backend (PHP REST)
-↓
-MySQL Database
-
----
-
-## ⚙️ Installation & Setup
-
-### 1. Clone repository
-
-git clone <your-repo-url>
+```bash
+git clone https://github.com/<your-username>/FlowStone-1.git
 cd FlowStone-1
-
-### 2. Install dependencies
-
 npm install
 npm run dev
+```
 
-### 3. Start backend
+### Backend Setup
 
+```bash
 cd backend
-php -S localhost:8000
-
-### 4. Setup database
-
 php setup.php
 php update_schema.php
 php setup_tasks.php
+php -S localhost:8000
+```
 
-### 5. Open app
+## Environment Variables
 
-http://localhost:5173
+The backend uses PHP configuration and default database settings defined in the backend scripts. For local setup, ensure your PHP environment can start the built-in server.
 
----
+## API Endpoints
 
-## 🔑 Default Login
+- `POST /login.php`
+- `POST /register.php`
+- `GET /profile.php?id={user_id}`
+- `POST /update_profile.php`
+- `GET /tasks.php`
+- `GET /task_detail.php?id={task_id}`
+- `POST /create_task.php`
+- `POST /update_task.php`
+- `POST /delete_task.php`
 
-Email: [admin@example.com](mailto:admin@example.com)
-Password: password123
+## Folder Structure
 
----
+```text
+.
+├── backend/
+│   ├── approvals.php
+│   ├── create_task.php
+│   ├── dashboard.php
+│   ├── login.php
+│   ├── profile.php
+│   ├── register.php
+│   ├── tasks.php
+│   ├── update_task.php
+│   ├── setup.php
+│   ├── update_schema.php
+│   ├── setup_tasks.php
+│   └── uploads/
+├── public/
+│   └── robots.txt
+├── src/
+│   ├── admin/
+│   ├── components/
+│   ├── hooks/
+│   ├── lib/
+│   ├── pages/
+│   └── App.tsx
+├── package.json
+├── tsconfig.json
+├── vite.config.ts
+└── README.md
+```
 
-## 📂 Project Structure
+## License
 
-src/
-backend/
-public/
-package.json
+MIT License
 
----
+## Author / Contact
 
-## 🚀 Summary
-
-FlowStone is a complete enterprise workflow system with:
-
-* Task & approval management
-* Resource tracking
-* Analytics dashboards
-* Role-based access control
-
-Built with modern frontend tools and a structured backend.
-
----
+Nirjar Goswami  
+GitHub: https://github.com/Nirjar26
