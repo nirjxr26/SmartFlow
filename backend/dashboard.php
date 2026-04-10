@@ -41,46 +41,113 @@ try {
     // ===== TASKS THIS WEEK (Mon-Sun) =====
     $taskChartData = [];
     $dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    $weekData = [24, 18, 22, 28, 35, 12, 8]; // Seeded realistic data
-    
-    foreach ($dayNames as $idx => $day) {
-        $taskChartData[] = ['name' => $day, 'value' => $weekData[$idx]];
+    $taskByDayMap = array_fill_keys($dayNames, 0);
+
+    $stmt = $pdo->query(
+        "SELECT DATE_FORMAT(created_at, '%a') AS day_name, COUNT(*) AS cnt
+         FROM tasks
+         WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY)
+           AND created_at < DATE_ADD(DATE_SUB(CURDATE(), INTERVAL WEEKDAY(CURDATE()) DAY), INTERVAL 7 DAY)
+         GROUP BY day_name"
+    );
+    $taskByDayRows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    foreach ($taskByDayRows as $row) {
+        if (isset($taskByDayMap[$row['day_name']])) {
+            $taskByDayMap[$row['day_name']] = (int) $row['cnt'];
+        }
     }
 
-    // ===== RESOURCE UTILIZATION (Dec to April) =====
+    foreach ($dayNames as $day) {
+        $taskChartData[] = ['name' => $day, 'value' => $taskByDayMap[$day]];
+    }
+
+    // ===== RESOURCE UTILIZATION (LAST 5 MONTHS) =====
     $resourceChartData = [];
-    $months = ['Dec', 'Jan', 'Feb', 'Mar', 'Apr'];
-    $resourceUtilData = [42, 58, 65, 72, 85]; // Seeded increasing trend
-    
-    foreach ($months as $idx => $month) {
-        $resourceChartData[] = ['name' => $month, 'value' => $resourceUtilData[$idx]];
+    for ($i = 4; $i >= 0; $i--) {
+        $monthLabel = date('M', strtotime("-{$i} month"));
+        $monthStart = date('Y-m-01 00:00:00', strtotime("-{$i} month"));
+        $monthEnd = date('Y-m-01 00:00:00', strtotime('-' . ($i - 1) . ' month'));
+
+        if ($i === 0) {
+            $monthEnd = date('Y-m-01 00:00:00', strtotime('+1 month'));
+        }
+
+        $stmt = $pdo->prepare(
+            "SELECT COUNT(*) AS cnt
+             FROM resources
+             WHERE created_at >= ? AND created_at < ?"
+        );
+        $stmt->execute([$monthStart, $monthEnd]);
+        $count = (int) $stmt->fetch(PDO::FETCH_ASSOC)['cnt'];
+
+        $resourceChartData[] = ['name' => $monthLabel, 'value' => $count];
     }
 
-    // ===== TASK COMPLETION BY MONTH (May - April) =====
+    // ===== TASK COMPLETION BY MONTH (LAST 12 MONTHS) =====
     $monthlyCompletionData = [];
-    $monthLabels = ['May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr'];
-    $completionCounts = [15, 22, 28, 25, 31, 35, 38, 42, 48, 52, 58, 64];
-    
-    foreach ($monthLabels as $idx => $month) {
-        $monthlyCompletionData[] = ['name' => $month, 'value' => $completionCounts[$idx]];
+    for ($i = 11; $i >= 0; $i--) {
+        $monthLabel = date('M', strtotime("-{$i} month"));
+        $monthStart = date('Y-m-01 00:00:00', strtotime("-{$i} month"));
+        $monthEnd = date('Y-m-01 00:00:00', strtotime('-' . ($i - 1) . ' month'));
+
+        if ($i === 0) {
+            $monthEnd = date('Y-m-01 00:00:00', strtotime('+1 month'));
+        }
+
+        $stmt = $pdo->prepare(
+            "SELECT COUNT(*) AS cnt
+             FROM tasks
+             WHERE status = 'completed' AND updated_at >= ? AND updated_at < ?"
+        );
+        $stmt->execute([$monthStart, $monthEnd]);
+        $count = (int) $stmt->fetch(PDO::FETCH_ASSOC)['cnt'];
+
+        $monthlyCompletionData[] = ['name' => $monthLabel, 'value' => $count];
     }
 
     // ===== TOP PERFORMERS =====
-    $topPerformers = [
-        ['name' => 'Sarah Chen', 'completedTasks' => 58, 'avatar' => null],
-        ['name' => 'Mike Johnson', 'completedTasks' => 52, 'avatar' => null],
-        ['name' => 'Emily Davis', 'completedTasks' => 47, 'avatar' => null],
-        ['name' => 'David Wilson', 'completedTasks' => 41, 'avatar' => null],
-        ['name' => 'Alex Johnson', 'completedTasks' => 38, 'avatar' => null]
-    ];
+    $stmt = $pdo->query(
+        "SELECT u.name, COUNT(t.id) AS completed_tasks
+         FROM users u
+         LEFT JOIN tasks t ON t.assignee_id = u.id AND t.status = 'completed'
+         GROUP BY u.id, u.name
+         ORDER BY completed_tasks DESC, u.name ASC
+         LIMIT 5"
+    );
+    $topPerformersRows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $topPerformers = [];
+    foreach ($topPerformersRows as $row) {
+        $topPerformers[] = [
+            'name' => $row['name'],
+            'completedTasks' => (int) $row['completed_tasks'],
+            'avatar' => null,
+        ];
+    }
 
     // ===== RESOURCE UTILIZATION BY CATEGORY =====
-    $resourceByCategory = [
-        ['category' => 'Devices', 'available' => 12, 'assigned' => 18, 'maintenance' => 2],
-        ['category' => 'Software', 'available' => 8, 'assigned' => 15, 'maintenance' => 1],
-        ['category' => 'Rooms', 'available' => 4, 'assigned' => 6, 'maintenance' => 1],
-        ['category' => 'Equipment', 'available' => 6, 'assigned' => 9, 'maintenance' => 2]
-    ];
+    $resourceByCategory = [];
+    $resourceCategories = ['device' => 'Devices', 'software' => 'Software', 'room' => 'Rooms', 'equipment' => 'Equipment'];
+    foreach ($resourceCategories as $typeKey => $label) {
+        $stmt = $pdo->prepare(
+            "SELECT
+                SUM(CASE WHEN status = 'available' THEN 1 ELSE 0 END) AS available_cnt,
+                SUM(CASE WHEN status = 'assigned' THEN 1 ELSE 0 END) AS assigned_cnt,
+                SUM(CASE WHEN status = 'maintenance' THEN 1 ELSE 0 END) AS maintenance_cnt
+             FROM resources
+             WHERE type = ?"
+        );
+        $stmt->execute([$typeKey]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        $resourceByCategory[] = [
+            'category' => $label,
+            'available' => (int) ($row['available_cnt'] ?? 0),
+            'assigned' => (int) ($row['assigned_cnt'] ?? 0),
+            'maintenance' => (int) ($row['maintenance_cnt'] ?? 0),
+        ];
+    }
 
     // ===== RECENT ACTIVITIES =====
     $stmt = $pdo->prepare("

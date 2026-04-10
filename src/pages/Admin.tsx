@@ -30,7 +30,7 @@ export default function Admin() {
           return;
         }
 
-        const response = await fetch(`http://localhost:8000/profile.php?id=${storedUser.id}`, {
+        const response = await fetch(`http://localhost:8000/backend/profile.php?id=${storedUser.id}`, {
           headers: {
             Authorization: localStorage.getItem("token") || "",
           },

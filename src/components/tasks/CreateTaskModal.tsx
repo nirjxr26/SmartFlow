@@ -43,7 +43,7 @@ export function CreateTaskModal({ isOpen, onClose, onTaskCreated, task }: Create
 
   const fetchUsers = async () => {
     try {
-      const response = await fetch('http://localhost:8000/users.php');
+      const response = await fetch('http://localhost:8000/backend/users.php');
       const data = await response.json();
       if (data.success && data.users) {
         setUsers(data.users);
@@ -94,8 +94,8 @@ export function CreateTaskModal({ isOpen, onClose, onTaskCreated, task }: Create
       const user = JSON.parse(localStorage.getItem('user') || '{}');
       
       const url = isEditMode 
-        ? 'http://localhost:8000/update_task.php' 
-        : 'http://localhost:8000/create_task.php';
+        ? 'http://localhost:8000/backend/update_task.php' 
+        : 'http://localhost:8000/backend/create_task.php';
       
       const payload = isEditMode
         ? { ...formData, task_id: task?.id }

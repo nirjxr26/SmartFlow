@@ -83,12 +83,12 @@ export function AdminPanel() {
 
       const [usersRes, tasksRes, approvalsRes, resourcesRes, notificationsRes] =
         await Promise.all([
-          fetch("http://localhost:8000/users.php", { headers: getAuthHeaders() }),
-          fetch("http://localhost:8000/tasks.php", { headers: getAuthHeaders() }),
-          fetch("http://localhost:8000/approvals.php", { headers: getAuthHeaders() }),
-          fetch("http://localhost:8000/resources.php", { headers: getAuthHeaders() }),
+          fetch("http://localhost:8000/backend/users.php", { headers: getAuthHeaders() }),
+          fetch("http://localhost:8000/backend/tasks.php", { headers: getAuthHeaders() }),
+          fetch("http://localhost:8000/backend/approvals.php", { headers: getAuthHeaders() }),
+          fetch("http://localhost:8000/backend/resources.php", { headers: getAuthHeaders() }),
           fetch(
-            `http://localhost:8000/notifications.php?userId=${userId || 1}&filter=unread`,
+            `http://localhost:8000/backend/notifications.php?userId=${userId || 1}&filter=unread`,
             { headers: getAuthHeaders() }
           ),
         ]);

@@ -48,7 +48,7 @@ export default function Dashboard() {
   const fetchDashboardData = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch('http://localhost:8000/dashboard.php', {
+      const response = await fetch('http://localhost:8000/backend/dashboard.php', {
         headers: {
           'Authorization': localStorage.getItem('token') || '',
         },

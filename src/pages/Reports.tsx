@@ -40,7 +40,7 @@ export default function Reports() {
   const fetchReportsData = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch('http://localhost:8000/reports.php', {
+      const response = await fetch('http://localhost:8000/backend/reports.php', {
         headers: {
           'Authorization': localStorage.getItem('token') || '',
         },

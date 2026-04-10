@@ -45,7 +45,7 @@ export function TopBar({ title, subtitle }: TopBarProps) {
   const fetchUnreadCount = async () => {
     try {
       const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
-      const response = await fetch(`http://localhost:8000/notifications.php?userId=${storedUser.id}&filter=unread`, {
+      const response = await fetch(`http://localhost:8000/backend/notifications.php?userId=${storedUser.id}&filter=unread`, {
         headers: {
           'Authorization': localStorage.getItem('token') || '',
         },
@@ -62,7 +62,7 @@ export function TopBar({ title, subtitle }: TopBarProps) {
   const fetchRecentNotifications = async () => {
     try {
       const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
-      const response = await fetch(`http://localhost:8000/notifications.php?userId=${storedUser.id}&filter=all`, {
+      const response = await fetch(`http://localhost:8000/backend/notifications.php?userId=${storedUser.id}&filter=all`, {
         headers: {
           'Authorization': localStorage.getItem('token') || '',
         },
@@ -79,7 +79,7 @@ export function TopBar({ title, subtitle }: TopBarProps) {
   const fetchUserData = async () => {
     try {
       const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
-      const response = await fetch(`http://localhost:8000/profile.php?id=${storedUser.id}`, {
+      const response = await fetch(`http://localhost:8000/backend/profile.php?id=${storedUser.id}`, {
         headers: {
           'Authorization': localStorage.getItem('token') || '',
         },
@@ -108,7 +108,7 @@ export function TopBar({ title, subtitle }: TopBarProps) {
       const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
       if (storedUser.id) {
         // Fetch current preferences first
-        const getResponse = await fetch(`http://localhost:8000/settings.php?userId=${storedUser.id}`, {
+        const getResponse = await fetch(`http://localhost:8000/backend/settings.php?userId=${storedUser.id}`, {
           headers: {
             'Authorization': localStorage.getItem('token') || '',
           },
@@ -119,7 +119,7 @@ export function TopBar({ title, subtitle }: TopBarProps) {
           const updatedPreferences = { ...getData.preferences, theme: newTheme };
           
           // Save updated preferences
-          await fetch('http://localhost:8000/settings.php', {
+          await fetch('http://localhost:8000/backend/settings.php', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -318,7 +318,7 @@ export function TopBar({ title, subtitle }: TopBarProps) {
             </div>
             {user?.avatar ? (
               <img
-                src={`http://localhost:8000/${user.avatar}`}
+                src={`http://localhost:8000/backend/${user.avatar}`}
                 alt={user.name}
                 className="w-9 h-9 rounded-xl object-cover"
               />

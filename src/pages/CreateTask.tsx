@@ -35,7 +35,7 @@ export default function CreateTask() {
     try {
       const user = JSON.parse(localStorage.getItem('user') || '{}');
       
-      const response = await fetch('http://localhost:8000/create_task.php', {
+      const response = await fetch('http://localhost:8000/backend/create_task.php', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

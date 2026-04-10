@@ -47,7 +47,7 @@ export default function Settings() {
     setIsLoading(true);
     try {
       const user = JSON.parse(localStorage.getItem('user') || '{}');
-      const response = await fetch(`http://localhost:8000/settings.php?userId=${user.id}`, {
+      const response = await fetch(`http://localhost:8000/backend/settings.php?userId=${user.id}`, {
         headers: {
           'Authorization': localStorage.getItem('token') || '',
         },
@@ -74,7 +74,7 @@ export default function Settings() {
     
     setIsSaving(true);
     try {
-      const response = await fetch('http://localhost:8000/settings.php', {
+      const response = await fetch('http://localhost:8000/backend/settings.php', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -161,7 +161,7 @@ export default function Settings() {
     setIsSaving(true);
     try {
       const user = JSON.parse(localStorage.getItem('user') || '{}');
-      const response = await fetch('http://localhost:8000/settings.php', {
+      const response = await fetch('http://localhost:8000/backend/settings.php', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -239,7 +239,7 @@ export default function Settings() {
     formData.append('userId', user.id.toString());
 
     try {
-      const response = await fetch('http://localhost:8000/upload_avatar.php', {
+      const response = await fetch('http://localhost:8000/backend/upload_avatar.php', {
         method: 'POST',
         headers: {
           'Authorization': localStorage.getItem('token') || '',
@@ -287,7 +287,7 @@ export default function Settings() {
 
     try {
       const user = JSON.parse(localStorage.getItem('user') || '{}');
-      await fetch('http://localhost:8000/settings.php', {
+      await fetch('http://localhost:8000/backend/settings.php', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -316,7 +316,7 @@ export default function Settings() {
       
       try {
         const user = JSON.parse(localStorage.getItem('user') || '{}');
-        await fetch('http://localhost:8000/settings.php', {
+        await fetch('http://localhost:8000/backend/settings.php', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

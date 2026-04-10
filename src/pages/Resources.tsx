@@ -50,7 +50,7 @@ export default function Resources() {
       if (statusFilter !== 'all') params.append('status', statusFilter);
       if (searchQuery) params.append('search', searchQuery);
 
-      const response = await fetch(`http://localhost:8000/resources.php?${params.toString()}`, {
+      const response = await fetch(`http://localhost:8000/backend/resources.php?${params.toString()}`, {
         headers: {
           'Authorization': localStorage.getItem('token') || '',
         },
@@ -156,7 +156,7 @@ export default function Resources() {
               
               if (result.isConfirmed && result.value) {
                 try {
-                  const response = await fetch('http://localhost:8000/resources.php', {
+                  const response = await fetch('http://localhost:8000/backend/resources.php', {
                     method: 'POST',
                     headers: {
                       'Content-Type': 'application/json',

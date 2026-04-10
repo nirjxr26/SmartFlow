@@ -47,7 +47,7 @@ export default function Notifications() {
       const user = JSON.parse(localStorage.getItem('user') || '{}');
       const userId = user.id || 1;
 
-      const response = await fetch(`http://localhost:8000/notifications.php?userId=${userId}&filter=${filter}`, {
+      const response = await fetch(`http://localhost:8000/backend/notifications.php?userId=${userId}&filter=${filter}`, {
         headers: {
           'Authorization': localStorage.getItem('token') || '',
         },
@@ -70,7 +70,7 @@ export default function Notifications() {
       const user = JSON.parse(localStorage.getItem('user') || '{}');
       const userId = user.id || 1;
 
-      const response = await fetch('http://localhost:8000/notifications.php', {
+      const response = await fetch('http://localhost:8000/backend/notifications.php', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -97,7 +97,7 @@ export default function Notifications() {
       const user = JSON.parse(localStorage.getItem('user') || '{}');
       const userId = user.id || 1;
 
-      const response = await fetch('http://localhost:8000/notifications.php', {
+      const response = await fetch('http://localhost:8000/backend/notifications.php', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -122,7 +122,7 @@ export default function Notifications() {
       const user = JSON.parse(localStorage.getItem('user') || '{}');
       const userId = user.id || 1;
 
-      const response = await fetch('http://localhost:8000/notifications.php', {
+      const response = await fetch('http://localhost:8000/backend/notifications.php', {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',

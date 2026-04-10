@@ -33,7 +33,7 @@ export default function Profile() {
   const fetchProfile = async () => {
     try {
       const user = JSON.parse(localStorage.getItem('user') || '{}');
-      const response = await fetch(`http://localhost:8000/profile.php?id=${user.id}`, {
+      const response = await fetch(`http://localhost:8000/backend/profile.php?id=${user.id}`, {
         headers: {
           'Authorization': localStorage.getItem('token') || '',
         },
@@ -85,7 +85,7 @@ export default function Profile() {
 
     setIsSaving(true);
     try {
-      const response = await fetch('http://localhost:8000/update_profile.php', {
+      const response = await fetch('http://localhost:8000/backend/update_profile.php', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

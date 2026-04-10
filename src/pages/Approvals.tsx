@@ -30,7 +30,7 @@ export default function Approvals() {
   const fetchApprovals = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch(`http://localhost:8000/approvals.php?status=${activeTab}`, {
+      const response = await fetch(`http://localhost:8000/backend/approvals.php?status=${activeTab}`, {
         headers: {
           'Authorization': localStorage.getItem('token') || '',
         },
@@ -61,7 +61,7 @@ export default function Approvals() {
 
     if (result.isConfirmed) {
       try {
-        const response = await fetch('http://localhost:8000/approvals.php', {
+        const response = await fetch('http://localhost:8000/backend/approvals.php', {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -114,7 +114,7 @@ export default function Approvals() {
 
     if (result.isConfirmed) {
       try {
-        const response = await fetch('http://localhost:8000/approvals.php', {
+        const response = await fetch('http://localhost:8000/backend/approvals.php', {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',

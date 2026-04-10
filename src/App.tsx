@@ -26,7 +26,7 @@ const App = () => {
       try {
         const user = JSON.parse(localStorage.getItem('user') || '{}');
         if (user.id) {
-          const response = await fetch(`http://localhost:8000/settings.php?userId=${user.id}`, {
+          const response = await fetch(`http://localhost:8000/backend/settings.php?userId=${user.id}`, {
             headers: {
               'Authorization': localStorage.getItem('token') || '',
             },

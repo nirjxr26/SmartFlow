@@ -59,7 +59,11 @@ export default function Tasks() {
         params.append('search', searchQuery);
       }
 
-      const response = await fetch(`http://localhost:8000/tasks.php?${params.toString()}`);
+      const response = await fetch(`http://localhost:8000/backend/tasks.php?${params.toString()}`, {
+        headers: {
+          'Authorization': localStorage.getItem('token') || '',
+        },
+      });
       const data = await response.json();
 
       if (data.success) {
@@ -101,7 +105,7 @@ export default function Tasks() {
 
   const handleTaskClick = async (task: Task) => {
     try {
-      const response = await fetch(`http://localhost:8000/task_detail.php?id=${task.id}`);
+      const response = await fetch(`http://localhost:8000/backend/task_detail.php?id=${task.id}`);
       const data = await response.json();
       
       if (data.success) {
@@ -134,7 +138,7 @@ export default function Tasks() {
 
   const handleTaskUpdate = async (taskId: number, updates: any) => {
     try {
-      const response = await fetch('http://localhost:8000/update_task.php', {
+      const response = await fetch('http://localhost:8000/backend/update_task.php', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -191,7 +195,7 @@ export default function Tasks() {
     }
 
     try {
-      const response = await fetch('http://localhost:8000/delete_task.php', {
+      const response = await fetch('http://localhost:8000/backend/delete_task.php', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
