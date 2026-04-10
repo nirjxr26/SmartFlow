@@ -2,6 +2,8 @@ import { motion } from "framer-motion";
 import {
   AreaChart,
   Area,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   Tooltip,
@@ -9,6 +11,7 @@ import {
   BarChart,
   Bar,
 } from "recharts";
+import { cn } from "@/lib/utils";
 
 interface ChartData {
   name: string;
@@ -19,9 +22,10 @@ interface ChartData {
 interface MiniChartProps {
   title: string;
   data: ChartData[];
-  type?: "area" | "bar";
+  type?: "area" | "bar" | "line";
   color?: "primary" | "accent" | "success";
   delay?: number;
+  className?: string;
 }
 
 const colorMap = {
@@ -48,6 +52,7 @@ export function MiniChart({
   type = "area",
   color = "primary",
   delay = 0,
+  className,
 }: MiniChartProps) {
   const colors = colorMap[color];
 
@@ -56,7 +61,7 @@ export function MiniChart({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay }}
-      className="card-elevated p-6"
+      className={cn("card-elevated p-6", className)}
     >
       <h3 className="text-sm font-semibold text-foreground mb-4">{title}</h3>
       <div className="h-40">
@@ -95,6 +100,35 @@ export function MiniChart({
                 fill={`url(#gradient-${color})`}
               />
             </AreaChart>
+          ) : type === "line" ? (
+            <LineChart data={data}>
+              <XAxis
+                dataKey="name"
+                axisLine={false}
+                tickLine={false}
+                tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
+                dy={10}
+              />
+              <YAxis hide />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: "hsl(var(--card))",
+                  border: "1px solid hsl(var(--border))",
+                  borderRadius: "12px",
+                  boxShadow: "var(--shadow-lg)",
+                }}
+                labelStyle={{ color: "hsl(var(--foreground))", fontWeight: 600 }}
+                itemStyle={{ color: "hsl(var(--muted-foreground))" }}
+              />
+              <Line
+                type="monotone"
+                dataKey="value"
+                stroke={colors.stroke}
+                strokeWidth={2.5}
+                dot={{ r: 3, fill: colors.stroke, strokeWidth: 0 }}
+                activeDot={{ r: 5 }}
+              />
+            </LineChart>
           ) : (
             <BarChart data={data} barSize={24}>
               <XAxis

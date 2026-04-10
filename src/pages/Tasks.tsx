@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Plus, Search, Filter, Grid3X3, List, X } from "lucide-react";
+import { Plus, Search, Grid3X3, List, X } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { TaskCard, TaskStatus, TaskPriority } from "@/components/tasks/TaskCard";
 import { TaskDetailModal } from "@/components/tasks/TaskDetailModal";
@@ -16,10 +16,10 @@ interface Task {
   status: TaskStatus;
   priority: TaskPriority;
   assignee: { name: string; email?: string };
+  createdBy?: { id: number; name: string };
   deadline: string;
   createdAt: string;
   updatedAt?: string;
-  createdBy?: string;
   comments?: number;
   attachments?: number;
 }
@@ -35,18 +35,57 @@ const statusFilters = [
 export default function Tasks() {
   const navigate = useNavigate();
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [users, setUsers] = useState<Array<{ id: number; name: string; email: string }>>([]);
+  const [currentUser, setCurrentUser] = useState<{ id: number; role?: string; name?: string }>({ id: 0 });
   const [isLoading, setIsLoading] = useState(true);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [activeFilter, setActiveFilter] = useState("all");
+  const [sortMode, setSortMode] = useState<"newest" | "oldest">("newest");
+  const [createdDateFilter, setCreatedDateFilter] = useState("");
+  const [selectedAssigneeId, setSelectedAssigneeId] = useState<string>("");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     fetchTasks();
-  }, [activeFilter]);
+  }, [activeFilter, sortMode, selectedAssigneeId, createdDateFilter]);
+
+  useEffect(() => {
+    try {
+      setCurrentUser(JSON.parse(localStorage.getItem('user') || '{}'));
+    } catch {
+      setCurrentUser({ id: 0 });
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const fetchUsers = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/backend/users.php', {
+        headers: {
+          'Authorization': localStorage.getItem('token') || '',
+        },
+      });
+      const data = await response.json();
+      if (data.success && data.users) {
+        setUsers(data.users);
+      }
+    } catch (error) {
+      console.error('Failed to fetch users:', error);
+    }
+  };
+
+  const isAdmin = (currentUser.role || '').toLowerCase().includes('admin');
+
+  const canManageTask = (task: Task) => {
+    return isAdmin || task.createdBy?.id === currentUser.id;
+  };
 
   const fetchTasks = async () => {
     setIsLoading(true);
@@ -54,6 +93,13 @@ export default function Tasks() {
       const params = new URLSearchParams();
       if (activeFilter !== 'all') {
         params.append('status', activeFilter);
+      }
+      params.append('sort', sortMode);
+      if (selectedAssigneeId) {
+        params.append('assignee_id', selectedAssigneeId);
+      }
+      if (createdDateFilter) {
+        params.append('created_date', createdDateFilter);
       }
       if (searchQuery) {
         params.append('search', searchQuery);
@@ -93,6 +139,14 @@ export default function Tasks() {
     fetchTasks();
   };
 
+  const handleSortChange = (mode: "newest" | "oldest") => {
+    setSortMode(mode);
+  };
+
+  const handleAssigneeChange = (value: string) => {
+    setSelectedAssigneeId(value);
+  };
+
   const handleEditTask = (task: Task) => {
     setEditingTask(task);
     setIsEditModalOpen(true);
@@ -130,6 +184,17 @@ export default function Tasks() {
     }
   };
 
+  const handleDataUpdate = (taskId: number, commentsCount: number, attachmentsCount: number) => {
+    // Update the tasks list with new counts
+    setTasks(prevTasks =>
+      prevTasks.map(task =>
+        task.id === taskId
+          ? { ...task, comments: commentsCount, attachments: attachmentsCount }
+          : task
+      )
+    );
+  };
+
   const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       handleSearch();
@@ -144,7 +209,7 @@ export default function Tasks() {
           'Content-Type': 'application/json',
           'Authorization': localStorage.getItem('token') || '',
         },
-        body: JSON.stringify({ id: taskId, ...updates }),
+        body: JSON.stringify({ id: taskId, user_id: currentUser.id, ...updates }),
       });
 
       const data = await response.json();
@@ -201,7 +266,7 @@ export default function Tasks() {
           'Content-Type': 'application/json',
           'Authorization': localStorage.getItem('token') || '',
         },
-        body: JSON.stringify({ id: taskId }),
+        body: JSON.stringify({ id: taskId, user_id: currentUser.id }),
       });
 
       const data = await response.json();
@@ -246,7 +311,7 @@ export default function Tasks() {
           {/* Header Actions */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
         {/* Search and Filters */}
-        <div className="flex items-center gap-3 flex-1 w-full sm:w-auto">
+        <div className="flex items-center gap-3 flex-1 w-full sm:w-auto flex-wrap">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input
@@ -266,9 +331,64 @@ export default function Tasks() {
               </button>
             )}
           </div>
-          <button className="w-10 h-10 rounded-xl bg-card border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
-            <Filter className="w-4 h-4" />
-          </button>
+          <div className="inline-flex items-center gap-1 rounded-xl border border-border bg-card p-1">
+            <button
+              type="button"
+              onClick={() => handleSortChange('newest')}
+              className={cn(
+                "px-3 py-2 rounded-lg text-xs font-medium transition-colors",
+                sortMode === 'newest'
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              )}
+            >
+              Newest
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSortChange('oldest')}
+              className={cn(
+                "px-3 py-2 rounded-lg text-xs font-medium transition-colors",
+                sortMode === 'oldest'
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              )}
+            >
+              Oldest
+            </button>
+          </div>
+          <div className="flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2">
+            <label className="text-xs font-medium text-muted-foreground whitespace-nowrap">
+              Date Created
+            </label>
+            <input
+              type="date"
+              value={createdDateFilter}
+              onChange={(e) => setCreatedDateFilter(e.target.value)}
+              className="bg-transparent text-sm text-foreground focus:outline-none"
+            />
+            {createdDateFilter && (
+              <button
+                type="button"
+                onClick={() => setCreatedDateFilter("")}
+                className="text-xs text-muted-foreground hover:text-foreground"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+          <select
+            value={selectedAssigneeId}
+            onChange={(e) => handleAssigneeChange(e.target.value)}
+            className="min-w-[180px] px-3 py-2.5 rounded-xl bg-card border border-border text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all"
+          >
+            <option value="">Assigned User</option>
+            {users.map((user) => (
+              <option key={user.id} value={user.id}>
+                {user.name}
+              </option>
+            ))}
+          </select>
         </div>
 
         {/* View Toggle and Create */}
@@ -340,12 +460,13 @@ export default function Tasks() {
           <TaskCard
             key={task.id}
             {...task}
-            comments={task.comments.length}
-            attachments={task.attachments.length}
+            comments={task.comments}
+            attachments={task.attachments}
             delay={index * 0.05}
             onClick={() => handleTaskClick(task)}
-            onEdit={() => handleEditTask(task)}
-            onDelete={() => handleTaskDelete(task.id)}
+            canManage={canManageTask(task)}
+            onEdit={canManageTask(task) ? () => handleEditTask(task) : undefined}
+            onDelete={canManageTask(task) ? () => handleTaskDelete(task.id) : undefined}
           />
         ))}
       </div>
@@ -378,6 +499,7 @@ export default function Tasks() {
         task={selectedTask}
         onUpdate={handleTaskUpdate}
         onDelete={handleTaskDelete}
+        onDataUpdate={handleDataUpdate}
       />
 
       {/* Edit Task Modal */}

@@ -98,7 +98,7 @@ export function CreateTaskModal({ isOpen, onClose, onTaskCreated, task }: Create
         : 'http://localhost:8000/backend/create_task.php';
       
       const payload = isEditMode
-        ? { ...formData, task_id: task?.id }
+        ? { ...formData, task_id: task?.id, user_id: user.id }
         : { ...formData, user_id: user.id, assignee_id: formData.assignee_id || user.id };
       
       const response = await fetch(url, {

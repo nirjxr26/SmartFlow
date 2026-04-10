@@ -2,7 +2,7 @@
 if (php_sapi_name() !== 'cli') {
     header('Content-Type: application/json');
     header('Access-Control-Allow-Origin: *');
-    header('Access-Control-Allow-Methods: POST, GET, PUT, DELETE, OPTIONS');
+    header('Access-Control-Allow-Methods: POST, GET, PUT, PATCH, DELETE, OPTIONS');
     header('Access-Control-Allow-Headers: Content-Type, Authorization');
 
     if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -80,6 +80,37 @@ function flowstone_bootstrap_schema(PDO $pdo): void
 
         flowstone_execute_sql_file($pdo, $schemaFile);
     }
+}
+
+function flowstone_fetch_user(PDO $pdo, int $userId): ?array
+{
+    if ($userId <= 0) {
+        return null;
+    }
+
+    $stmt = $pdo->prepare("SELECT id, email, name, role FROM users WHERE id = ?");
+    $stmt->execute([$userId]);
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    return $user ?: null;
+}
+
+function flowstone_is_admin_role(?string $role): bool
+{
+    return $role !== null && stripos($role, 'admin') !== false;
+}
+
+function flowstone_fetch_task_owner(PDO $pdo, int $taskId): ?array
+{
+    if ($taskId <= 0) {
+        return null;
+    }
+
+    $stmt = $pdo->prepare("SELECT id, created_by FROM tasks WHERE id = ?");
+    $stmt->execute([$taskId]);
+    $task = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    return $task ?: null;
 }
 
 // Load .env file if available

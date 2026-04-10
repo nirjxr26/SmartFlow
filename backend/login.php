@@ -27,7 +27,7 @@ if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
 }
 
 try {
-    $stmt = $pdo->prepare("SELECT id, email, password, name FROM users WHERE email = ?");
+    $stmt = $pdo->prepare("SELECT id, email, password, name, role FROM users WHERE email = ?");
     $stmt->execute([$email]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -46,7 +46,8 @@ try {
             'user' => [
                 'id' => $user['id'],
                 'email' => $user['email'],
-                'name' => $user['name']
+                'name' => $user['name'],
+                'role' => $user['role']
             ],
             'token' => $token
         ]);

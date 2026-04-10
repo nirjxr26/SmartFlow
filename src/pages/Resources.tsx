@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Plus, Search, Filter, Monitor, Cpu, DoorOpen, Package, X } from "lucide-react";
+import { Plus, Search, Monitor, Cpu, DoorOpen, Package, X } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ResourceCard, ResourceType, ResourceStatus } from "@/components/resources/ResourceCard";
 import { cn } from "@/lib/utils";
@@ -37,6 +37,15 @@ export default function Resources() {
   const [searchQuery, setSearchQuery] = useState("");
   const [resources, setResources] = useState<Resource[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isCreatingResource, setIsCreatingResource] = useState(false);
+  const [createResourceError, setCreateResourceError] = useState("");
+  const [resourceForm, setResourceForm] = useState({
+    name: "",
+    type: "device" as ResourceType,
+    location: "",
+    description: "",
+  });
 
   useEffect(() => {
     fetchResources();
@@ -69,6 +78,61 @@ export default function Resources() {
 
   const handleSearch = () => {
     fetchResources();
+  };
+
+  const handleCreateResource = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!resourceForm.name.trim()) {
+      setCreateResourceError("Please enter a resource name");
+      return;
+    }
+
+    setCreateResourceError("");
+    setIsCreatingResource(true);
+
+    try {
+      const response = await fetch('http://localhost:8000/backend/resources.php', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': localStorage.getItem('token') || '',
+        },
+        body: JSON.stringify({
+          name: resourceForm.name,
+          type: resourceForm.type,
+          location: resourceForm.location,
+          description: resourceForm.description,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setIsCreateModalOpen(false);
+        setResourceForm({
+          name: "",
+          type: "device",
+          location: "",
+          description: "",
+        });
+        await Swal.fire({
+          title: 'Success!',
+          text: 'Resource added successfully',
+          icon: 'success',
+          confirmButtonColor: '#3b82f6',
+          timer: 1500,
+        });
+        fetchResources();
+      } else {
+        setCreateResourceError(data.message || 'Failed to add resource');
+      }
+    } catch (error) {
+      console.error('Failed to add resource:', error);
+      setCreateResourceError('Failed to add resource');
+    } finally {
+      setIsCreatingResource(false);
+    }
   };
 
   const filteredResources = resources.filter((resource) => {
@@ -123,64 +187,9 @@ export default function Resources() {
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             className="btn-primary-gradient flex items-center gap-2"
-            onClick={async () => {
-              const result = await Swal.fire({
-                title: 'Add New Resource',
-                html: `
-                  <input id="name" class="swal2-input" placeholder="Resource Name">
-                  <select id="type" class="swal2-input">
-                    <option value="device">Device</option>
-                    <option value="software">Software</option>
-                    <option value="room">Room</option>
-                    <option value="equipment">Equipment</option>
-                  </select>
-                  <input id="location" class="swal2-input" placeholder="Location (optional)">
-                  <textarea id="description" class="swal2-textarea" placeholder="Description (optional)"></textarea>
-                `,
-                confirmButtonText: 'Add Resource',
-                confirmButtonColor: '#3b82f6',
-                showCancelButton: true,
-                preConfirm: () => {
-                  const name = (document.getElementById('name') as HTMLInputElement).value;
-                  const type = (document.getElementById('type') as HTMLSelectElement).value;
-                  const location = (document.getElementById('location') as HTMLInputElement).value;
-                  const description = (document.getElementById('description') as HTMLTextAreaElement).value;
-                  
-                  if (!name) {
-                    Swal.showValidationMessage('Please enter a resource name');
-                  }
-                  
-                  return { name, type, location, description };
-                }
-              });
-              
-              if (result.isConfirmed && result.value) {
-                try {
-                  const response = await fetch('http://localhost:8000/backend/resources.php', {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                      'Authorization': localStorage.getItem('token') || '',
-                    },
-                    body: JSON.stringify(result.value),
-                  });
-                  
-                  const data = await response.json();
-                  
-                  if (data.success) {
-                    Swal.fire({
-                      title: 'Success!',
-                      text: 'Resource added successfully',
-                      icon: 'success',
-                      confirmButtonColor: '#3b82f6',
-                      timer: 1500,
-                    });
-                    fetchResources();
-                  }
-                } catch (error) {
-                  console.error('Failed to add resource:', error);
-                }
-              }
+            onClick={() => {
+              setCreateResourceError("");
+              setIsCreateModalOpen(true);
             }}
           >
             <Plus className="w-4 h-4" />
@@ -188,6 +197,98 @@ export default function Resources() {
           </motion.button>
         </div>
       </div>
+
+      {/* Create Resource Modal */}
+      {isCreateModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-2xl rounded-2xl border border-border bg-card shadow-2xl">
+            <div className="flex items-center justify-between border-b border-border px-6 py-4">
+              <h3 className="text-lg font-semibold text-foreground">Add New Resource</h3>
+              <button
+                type="button"
+                onClick={() => setIsCreateModalOpen(false)}
+                className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateResource} className="space-y-4 px-6 py-5">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Resource Name</label>
+                  <input
+                    type="text"
+                    value={resourceForm.name}
+                    onChange={(e) => setResourceForm((prev) => ({ ...prev, name: e.target.value }))}
+                    placeholder="Resource Name"
+                    className="w-full rounded-xl border border-border bg-muted/40 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Type</label>
+                  <select
+                    value={resourceForm.type}
+                    onChange={(e) => setResourceForm((prev) => ({ ...prev, type: e.target.value as ResourceType }))}
+                    className="w-full rounded-xl border border-border bg-muted/40 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50"
+                  >
+                    <option value="device">Device</option>
+                    <option value="software">Software</option>
+                    <option value="room">Room</option>
+                    <option value="equipment">Equipment</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">Location (optional)</label>
+                <input
+                  type="text"
+                  value={resourceForm.location}
+                  onChange={(e) => setResourceForm((prev) => ({ ...prev, location: e.target.value }))}
+                  placeholder="Location"
+                  className="w-full rounded-xl border border-border bg-muted/40 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">Description (optional)</label>
+                <textarea
+                  value={resourceForm.description}
+                  onChange={(e) => setResourceForm((prev) => ({ ...prev, description: e.target.value }))}
+                  placeholder="Description"
+                  rows={4}
+                  className="w-full rounded-xl border border-border bg-muted/40 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50"
+                />
+              </div>
+
+              {createResourceError && (
+                <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                  {createResourceError}
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-2 border-t border-border pt-4">
+                <button
+                  type="button"
+                  onClick={() => setIsCreateModalOpen(false)}
+                  className="rounded-xl border border-border px-4 py-2.5 text-sm text-foreground hover:bg-muted"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isCreatingResource}
+                  className="rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+                >
+                  {isCreatingResource ? 'Adding...' : 'Add Resource'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Type Filters */}
       <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-2">

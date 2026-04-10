@@ -3,196 +3,300 @@ require_once 'config.php';
 
 $method = $_SERVER['REQUEST_METHOD'];
 
-// Get user ID from token
-$headers = getallheaders();
-$token = $headers['Authorization'] ?? '';
-$user_id = 1; // Default for now, should decode from token
-
 try {
+    $requestUserId = 0;
+    $data = [];
+
     if ($method === 'GET') {
-        // Get approvals list
+        $requestUserId = isset($_GET['user_id']) ? intval($_GET['user_id']) : 0;
+    } else {
+        $data = json_decode(file_get_contents('php://input'), true) ?: [];
+        $requestUserId = isset($data['user_id']) ? intval($data['user_id']) : 0;
+    }
+
+    if ($requestUserId <= 0) {
+        echo json_encode(['success' => false, 'message' => 'User ID is required']);
+        exit;
+    }
+
+    $requestUser = flowstone_fetch_user($pdo, $requestUserId);
+    if (!$requestUser) {
+        echo json_encode(['success' => false, 'message' => 'User not found']);
+        exit;
+    }
+
+    $isAdmin = flowstone_is_admin_role($requestUser['role'] ?? null);
+
+    if ($method === 'GET') {
         $status = $_GET['status'] ?? 'all';
-        
+        $allowedStatuses = ['all', 'pending', 'approved', 'rejected'];
+        if (!in_array($status, $allowedStatuses, true)) {
+            echo json_encode(['success' => false, 'message' => 'Invalid status filter']);
+            exit;
+        }
+
         $sql = "
-            SELECT 
+            SELECT
                 a.id,
                 a.type,
                 a.description,
                 a.status,
                 a.created_at,
-                u.name as requested_by_name,
                 a.department,
-                approver.name as approved_by_name,
+                a.requested_by,
+                u.name AS requested_by_name,
+                approver.name AS approved_by_name,
                 a.approved_at
             FROM approvals a
             JOIN users u ON a.requested_by = u.id
             LEFT JOIN users approver ON a.approved_by = approver.id
         ";
-        
-        if ($status !== 'all') {
-            $sql .= " WHERE a.status = :status";
+
+        $where = [];
+        $params = [];
+
+        if (!$isAdmin) {
+            $where[] = 'a.requested_by = :requested_by';
+            $params[':requested_by'] = $requestUserId;
         }
-        
-        $sql .= " ORDER BY a.created_at DESC";
-        
+
+        if ($status !== 'all') {
+            $where[] = 'a.status = :status';
+            $params[':status'] = $status;
+        }
+
+        if (!empty($where)) {
+            $sql .= ' WHERE ' . implode(' AND ', $where);
+        }
+
+        $sql .= ' ORDER BY a.created_at DESC';
+
         $stmt = $pdo->prepare($sql);
-        
-        if ($status !== 'all') {
-            $stmt->bindParam(':status', $status);
-        }
-        
-        $stmt->execute();
+        $stmt->execute($params);
         $approvals = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        
-        // Format approvals
-        $formattedApprovals = [];
-        foreach ($approvals as $approval) {
-            $formattedApprovals[] = [
+
+        $formattedApprovals = array_map(function ($approval) use ($requestUserId, $isAdmin) {
+            $isPending = $approval['status'] === 'pending';
+            return [
                 'id' => (int)$approval['id'],
                 'type' => $approval['type'],
                 'requestedBy' => [
+                    'id' => (int)$approval['requested_by'],
                     'name' => $approval['requested_by_name'],
-                    'department' => $approval['department']
+                    'department' => $approval['department'],
                 ],
                 'date' => date('M d, Y', strtotime($approval['created_at'])),
+                'createdDate' => date('Y-m-d', strtotime($approval['created_at'])),
                 'description' => $approval['description'],
                 'status' => $approval['status'],
                 'approvedBy' => $approval['approved_by_name'],
-                'approvedAt' => $approval['approved_at'] ? date('M d, Y', strtotime($approval['approved_at'])) : null
+                'approvedAt' => $approval['approved_at'] ? date('M d, Y', strtotime($approval['approved_at'])) : null,
+                'canModify' => $isPending && ((int)$approval['requested_by'] === $requestUserId || $isAdmin),
             ];
+        }, $approvals);
+
+        $countsSql = 'SELECT status, COUNT(*) AS count FROM approvals';
+        $countsParams = [];
+
+        if (!$isAdmin) {
+            $countsSql .= ' WHERE requested_by = :requested_by';
+            $countsParams[':requested_by'] = $requestUserId;
         }
-        
-        // Get counts
-        $stmt = $pdo->query("SELECT COUNT(*) as count FROM approvals WHERE status = 'pending'");
-        $pendingCount = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
-        
-        $stmt = $pdo->query("SELECT COUNT(*) as count FROM approvals WHERE status = 'approved'");
-        $approvedCount = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
-        
-        $stmt = $pdo->query("SELECT COUNT(*) as count FROM approvals WHERE status = 'rejected'");
-        $rejectedCount = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
-        
+
+        $countsSql .= ' GROUP BY status';
+
+        $stmt = $pdo->prepare($countsSql);
+        $stmt->execute($countsParams);
+        $countRows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $countMap = [
+            'pending' => 0,
+            'approved' => 0,
+            'rejected' => 0,
+        ];
+
+        foreach ($countRows as $row) {
+            if (isset($countMap[$row['status']])) {
+                $countMap[$row['status']] = (int)$row['count'];
+            }
+        }
+
         echo json_encode([
             'success' => true,
             'approvals' => $formattedApprovals,
-            'counts' => [
-                'pending' => (int)$pendingCount,
-                'approved' => (int)$approvedCount,
-                'rejected' => (int)$rejectedCount
-            ]
+            'counts' => $countMap,
+            'canReview' => $isAdmin,
         ]);
-        
-    } elseif ($method === 'POST') {
-        // Create new approval request
-        $data = json_decode(file_get_contents('php://input'), true);
-        
-        $type = $data['type'] ?? '';
-        $description = $data['description'] ?? '';
-        $department = $data['department'] ?? '';
-        
-        if (empty($type) || empty($description)) {
+        exit;
+    }
+
+    if ($method === 'POST') {
+        $type = isset($data['type']) ? trim($data['type']) : '';
+        $description = isset($data['description']) ? trim($data['description']) : '';
+        $department = isset($data['department']) ? trim($data['department']) : '';
+
+        if ($type === '' || $description === '') {
             echo json_encode(['success' => false, 'message' => 'Type and description are required']);
             exit;
         }
-        
-        $stmt = $pdo->prepare("
+
+        $stmt = $pdo->prepare('
             INSERT INTO approvals (type, requested_by, department, description, status)
-            VALUES (:type, :requested_by, :department, :description, 'pending')
-        ");
-        
+            VALUES (:type, :requested_by, :department, :description, :status)
+        ');
+
         $stmt->execute([
             ':type' => $type,
-            ':requested_by' => $user_id,
-            ':department' => $department,
-            ':description' => $description
+            ':requested_by' => $requestUserId,
+            ':department' => $department !== '' ? $department : null,
+            ':description' => $description,
+            ':status' => 'pending',
         ]);
-        
-        $approvalId = $pdo->lastInsertId();
-        
-        // Create notification for admins
-        $stmt = $pdo->prepare("
+
+        $approvalId = (int)$pdo->lastInsertId();
+
+        $stmt = $pdo->prepare('
             INSERT INTO notifications (user_id, type, title, message)
-            SELECT id, 'warning', 'New Approval Request', CONCAT(:type, ' request from ', :department)
-            FROM users WHERE role = 'Administrator'
-        ");
+            SELECT id, :type, :title, :message
+            FROM users
+            WHERE role = :role AND id <> :requester
+        ');
         $stmt->execute([
-            ':type' => $type,
-            ':department' => $department
+            ':type' => 'warning',
+            ':title' => 'New Approval Request',
+            ':message' => $type . ' request submitted',
+            ':role' => 'Administrator',
+            ':requester' => $requestUserId,
         ]);
-        
-        // Log activity
-        $stmt = $pdo->prepare("
+
+        $stmt = $pdo->prepare('
             INSERT INTO activities (user_id, type, description, related_id, related_type)
-            VALUES (:user_id, 'approval_requested', :description, :approval_id, 'approval')
-        ");
+            VALUES (:user_id, :type, :description, :related_id, :related_type)
+        ');
         $stmt->execute([
-            ':user_id' => $user_id,
-            ':description' => "requested approval for $type",
-            ':approval_id' => $approvalId
+            ':user_id' => $requestUserId,
+            ':type' => 'approval_requested',
+            ':description' => 'requested approval for ' . $type,
+            ':related_id' => $approvalId,
+            ':related_type' => 'approval',
         ]);
-        
+
         echo json_encode([
             'success' => true,
             'message' => 'Approval request created successfully',
-            'id' => $approvalId
+            'id' => $approvalId,
         ]);
-        
-    } elseif ($method === 'PUT' || $method === 'PATCH') {
-        // Update approval status (approve/reject)
-        $data = json_decode(file_get_contents('php://input'), true);
-        
-        $approvalId = $data['id'] ?? 0;
-        $action = $data['action'] ?? ''; // 'approve' or 'reject'
-        
-        if (!$approvalId || !in_array($action, ['approve', 'reject'])) {
+        exit;
+    }
+
+    if ($method === 'PUT' || $method === 'PATCH') {
+        $approvalId = isset($data['id']) ? intval($data['id']) : 0;
+        $action = $data['action'] ?? '';
+
+        if ($approvalId <= 0 || !in_array($action, ['approve', 'reject', 'modify'], true)) {
             echo json_encode(['success' => false, 'message' => 'Invalid request']);
             exit;
         }
-        
-        $status = $action === 'approve' ? 'approved' : 'rejected';
-        
-        $stmt = $pdo->prepare("
-            UPDATE approvals 
-            SET status = :status, approved_by = :approved_by, approved_at = NOW()
-            WHERE id = :id
-        ");
-        
-        $stmt->execute([
-            ':status' => $status,
-            ':approved_by' => $user_id,
-            ':id' => $approvalId
-        ]);
-        
-        // Get approval details for notification
-        $stmt = $pdo->prepare("SELECT type, requested_by FROM approvals WHERE id = :id");
+
+        $stmt = $pdo->prepare('SELECT id, type, requested_by, status, department, description FROM approvals WHERE id = :id');
         $stmt->execute([':id' => $approvalId]);
         $approval = $stmt->fetch(PDO::FETCH_ASSOC);
-        
-        // Notify requester
-        $stmt = $pdo->prepare("
-            INSERT INTO notifications (user_id, type, title, message)
-            VALUES (:user_id, :notif_type, :title, :message)
-        ");
+
+        if (!$approval) {
+            echo json_encode(['success' => false, 'message' => 'Approval not found']);
+            exit;
+        }
+
+        if ($approval['status'] !== 'pending') {
+            echo json_encode(['success' => false, 'message' => 'Approval already reviewed']);
+            exit;
+        }
+
+        $isOwner = (int)$approval['requested_by'] === $requestUserId;
+
+        if ($action === 'modify') {
+            if (!$isAdmin && !$isOwner) {
+                echo json_encode(['success' => false, 'message' => 'You can only modify your own pending approvals']);
+                exit;
+            }
+
+            $newType = isset($data['type']) ? trim($data['type']) : '';
+            $newDescription = isset($data['description']) ? trim($data['description']) : '';
+            $newDepartment = isset($data['department']) ? trim($data['department']) : '';
+
+            if ($newType === '' || $newDescription === '') {
+                echo json_encode(['success' => false, 'message' => 'Type and description are required']);
+                exit;
+            }
+
+            $stmt = $pdo->prepare('UPDATE approvals SET type = :type, department = :department, description = :description WHERE id = :id');
+            $stmt->execute([
+                ':type' => $newType,
+                ':department' => $newDepartment !== '' ? $newDepartment : null,
+                ':description' => $newDescription,
+                ':id' => $approvalId,
+            ]);
+
+            $stmt = $pdo->prepare('
+                INSERT INTO activities (user_id, type, description, related_id, related_type)
+                VALUES (:user_id, :type, :description, :related_id, :related_type)
+            ');
+            $stmt->execute([
+                ':user_id' => $requestUserId,
+                ':type' => 'approval_requested',
+                ':description' => 'modified approval request #' . $approvalId,
+                ':related_id' => $approvalId,
+                ':related_type' => 'approval',
+            ]);
+
+            echo json_encode([
+                'success' => true,
+                'message' => 'Approval updated successfully',
+            ]);
+            exit;
+        }
+
+        if (!$isAdmin) {
+            echo json_encode(['success' => false, 'message' => 'Only admins can review approvals']);
+            exit;
+        }
+
+        $status = $action === 'approve' ? 'approved' : 'rejected';
+
+        $stmt = $pdo->prepare('
+            UPDATE approvals
+            SET status = :status, approved_by = :approved_by, approved_at = NOW()
+            WHERE id = :id
+        ');
         $stmt->execute([
-            ':user_id' => $approval['requested_by'],
-            ':notif_type' => $status === 'approved' ? 'success' : 'warning',
-            ':title' => 'Approval ' . ucfirst($status),
-            ':message' => "Your {$approval['type']} request has been $status"
+            ':status' => $status,
+            ':approved_by' => $requestUserId,
+            ':id' => $approvalId,
         ]);
-        
+
+        $stmt = $pdo->prepare('
+            INSERT INTO notifications (user_id, type, title, message)
+            VALUES (:user_id, :type, :title, :message)
+        ');
+        $stmt->execute([
+            ':user_id' => (int)$approval['requested_by'],
+            ':type' => $status === 'approved' ? 'success' : 'warning',
+            ':title' => 'Approval ' . ucfirst($status),
+            ':message' => 'Your ' . $approval['type'] . ' request has been ' . $status,
+        ]);
+
         echo json_encode([
             'success' => true,
-            'message' => "Approval $status successfully"
+            'message' => 'Approval ' . $status . ' successfully',
         ]);
-        
-    } else {
-        echo json_encode(['success' => false, 'message' => 'Method not allowed']);
+        exit;
     }
-    
+
+    echo json_encode(['success' => false, 'message' => 'Method not allowed']);
 } catch (PDOException $e) {
     echo json_encode([
         'success' => false,
-        'message' => 'Database error: ' . $e->getMessage()
+        'message' => 'Database error: ' . $e->getMessage(),
     ]);
 }
 ?>

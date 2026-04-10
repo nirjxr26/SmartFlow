@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
-import { LucideIcon, TrendingUp, TrendingDown } from "lucide-react";
+import { TrendingUp, TrendingDown } from "lucide-react";
+import { FontAwesomeIcon } from "@/components/ui/font-awesome-icon";
 import { cn } from "@/lib/utils";
 
 interface KPICardProps {
@@ -7,8 +8,8 @@ interface KPICardProps {
   value: string | number;
   change?: number;
   changeLabel?: string;
-  icon: LucideIcon;
-  variant?: "default" | "primary" | "accent" | "success" | "warning";
+  icon?: string; // Font Awesome icon class
+  color?: string; // Hex color code
   delay?: number;
 }
 
@@ -17,18 +18,18 @@ export function KPICard({
   value,
   change,
   changeLabel,
-  icon: Icon,
-  variant = "default",
+  icon,
+  color,
   delay = 0,
 }: KPICardProps) {
   const isPositive = change && change > 0;
 
-  const iconStyles = {
-    default: "bg-muted text-muted-foreground",
-    primary: "bg-primary/10 text-primary",
-    accent: "bg-accent/10 text-accent",
-    success: "bg-success/10 text-success",
-    warning: "bg-warning/10 text-warning",
+  // Determine background color based on provided color or default
+  const getBackgroundColor = (hexColor?: string) => {
+    if (!hexColor) return "bg-primary/10";
+    // Convert hex to rgba with 0.1 opacity for background
+    const rgb = hexColor.replace(/^#/, '').match(/.{1,2}/g)?.map(x => parseInt(x, 16)).join(',');
+    return `rgba(${rgb}, 0.1)`;
   };
 
   return (
@@ -67,14 +68,20 @@ export function KPICard({
             <p className="text-xs text-muted-foreground">{changeLabel}</p>
           )}
         </div>
-        <div
-          className={cn(
-            "w-12 h-12 rounded-2xl flex items-center justify-center",
-            iconStyles[variant]
-          )}
-        >
-          <Icon className="w-6 h-6" />
-        </div>
+        {icon && (
+          <div
+            className="w-12 h-12 rounded-2xl flex items-center justify-center"
+            style={{
+              backgroundColor: getBackgroundColor(color),
+            }}
+          >
+            <FontAwesomeIcon
+              icon={icon}
+              size="lg"
+              color={color}
+            />
+          </div>
+        )}
       </div>
     </motion.div>
   );

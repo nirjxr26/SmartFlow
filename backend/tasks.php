@@ -11,6 +11,8 @@ $status = isset($_GET['status']) ? $_GET['status'] : null;
 $priority = isset($_GET['priority']) ? $_GET['priority'] : null;
 $assignee_id = isset($_GET['assignee_id']) ? intval($_GET['assignee_id']) : null;
 $search = isset($_GET['search']) ? trim($_GET['search']) : null;
+$created_date = isset($_GET['created_date']) ? trim($_GET['created_date']) : null;
+$sort = isset($_GET['sort']) ? $_GET['sort'] : 'newest';
 
 try {
     // Build query
@@ -25,6 +27,7 @@ try {
             t.created_at,
             t.updated_at,
             t.assignee_id,
+            t.created_by,
             u.name as assignee_name,
             u.email as assignee_email,
             creator.name as created_by_name,
@@ -59,17 +62,31 @@ try {
         $params[] = "%$search%";
         $params[] = "%$search%";
     }
+
+    if ($created_date) {
+        $createdDateObj = DateTime::createFromFormat('Y-m-d', $created_date);
+        if (!$createdDateObj || $createdDateObj->format('Y-m-d') !== $created_date) {
+            echo json_encode(['success' => false, 'message' => 'Invalid created_date format. Use YYYY-MM-DD']);
+            exit;
+        }
+
+        $sql .= " AND DATE(t.created_at) = ?";
+        $params[] = $created_date;
+    }
     
-    // Order by priority and deadline
-    $sql .= " ORDER BY 
-        CASE t.priority 
+    // Order by the selected sort mode, then priority and title for stable results
+    $orderBy = "t.created_at DESC";
+    if ($sort === 'oldest') {
+        $orderBy = "t.created_at ASC";
+    } elseif ($sort === 'newest') {
+        $orderBy = "t.created_at DESC";
+    }
+
+    $sql .= " ORDER BY {$orderBy}, CASE t.priority 
             WHEN 'high' THEN 1 
             WHEN 'medium' THEN 2 
             WHEN 'low' THEN 3 
-        END,
-        t.deadline ASC,
-        t.created_at DESC
-    ";
+        END, t.title ASC";
     
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
@@ -88,7 +105,10 @@ try {
                 'name' => $task['assignee_name'] ?? 'Unassigned',
                 'email' => $task['assignee_email'] ?? null
             ],
-            'createdBy' => $task['created_by_name'],
+            'createdBy' => [
+                'id' => (int)$task['created_by'],
+                'name' => $task['created_by_name']
+            ],
             'deadline' => $task['deadline'] ? date('M d, Y', strtotime($task['deadline'])) : null,
             'createdAt' => date('M d, Y', strtotime($task['created_at'])),
             'updatedAt' => date('M d, Y', strtotime($task['updated_at'])),

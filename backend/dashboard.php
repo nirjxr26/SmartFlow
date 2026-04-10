@@ -123,13 +123,20 @@ try {
             'name' => $row['name'],
             'completedTasks' => (int) $row['completed_tasks'],
             'avatar' => null,
+            'icon' => 'fas fa-star',
+            'color' => '#fbbf24'
         ];
     }
 
     // ===== RESOURCE UTILIZATION BY CATEGORY =====
     $resourceByCategory = [];
-    $resourceCategories = ['device' => 'Devices', 'software' => 'Software', 'room' => 'Rooms', 'equipment' => 'Equipment'];
-    foreach ($resourceCategories as $typeKey => $label) {
+    $resourceCategories = [
+        'device' => ['label' => 'Devices', 'icon' => 'fas fa-laptop'],
+        'software' => ['label' => 'Software', 'icon' => 'fas fa-cube'],
+        'room' => ['label' => 'Rooms', 'icon' => 'fas fa-door-open'],
+        'equipment' => ['label' => 'Equipment', 'icon' => 'fas fa-toolbox']
+    ];
+    foreach ($resourceCategories as $typeKey => $categoryData) {
         $stmt = $pdo->prepare(
             "SELECT
                 SUM(CASE WHEN status = 'available' THEN 1 ELSE 0 END) AS available_cnt,
@@ -142,7 +149,8 @@ try {
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
         $resourceByCategory[] = [
-            'category' => $label,
+            'category' => $categoryData['label'],
+            'icon' => $categoryData['icon'],
             'available' => (int) ($row['available_cnt'] ?? 0),
             'assigned' => (int) ($row['assigned_cnt'] ?? 0),
             'maintenance' => (int) ($row['maintenance_cnt'] ?? 0),
@@ -166,11 +174,24 @@ try {
     $activities = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     // Format activities
+    $activityIcons = [
+        'task_created' => 'fas fa-plus-circle',
+        'task_updated' => 'fas fa-edit',
+        'task_completed' => 'fas fa-check-circle',
+        'approval_requested' => 'fas fa-handshake',
+        'approval_approved' => 'fas fa-thumbs-up',
+        'approval_rejected' => 'fas fa-thumbs-down',
+        'resource_assigned' => 'fas fa-link',
+        'user_login' => 'fas fa-sign-in-alt',
+        'profile_updated' => 'fas fa-user-edit',
+    ];
+
     $formattedActivities = [];
     foreach ($activities as $activity) {
         $formattedActivities[] = [
             'id' => $activity['id'],
             'type' => $activity['type'],
+            'icon' => $activityIcons[$activity['type']] ?? 'fas fa-bell',
             'user' => $activity['user_name'],
             'action' => $activity['description'],
             'time' => getTimeAgo($activity['created_at'])
@@ -182,19 +203,27 @@ try {
         'kpis' => [
             'totalTasks' => [
                 'value' => (int) $totalTasks,
-                'change' => (int) $taskChange
+                'change' => (int) $taskChange,
+                'icon' => 'fas fa-list-check',
+                'color' => '#3b82f6'
             ],
             'pendingApprovals' => [
                 'value' => (int) $pendingApprovals,
-                'change' => (int) $approvalChange
+                'change' => (int) $approvalChange,
+                'icon' => 'fas fa-check-circle',
+                'color' => '#f59e0b'
             ],
             'resourcesInUse' => [
                 'value' => (int) $resourcesInUse,
-                'change' => 8
+                'change' => 8,
+                'icon' => 'fas fa-tools',
+                'color' => '#10b981'
             ],
             'completedTasks' => [
                 'value' => (int) $completedTasks,
-                'change' => (int) $thisMonthCompleted
+                'change' => (int) $thisMonthCompleted,
+                'icon' => 'fas fa-check',
+                'color' => '#8b5cf6'
             ]
         ],
         'charts' => [

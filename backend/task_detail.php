@@ -49,6 +49,7 @@ try {
             c.id,
             c.content,
             c.created_at,
+            c.user_id,
             u.name as user_name,
             u.email as user_email
         FROM task_comments c
@@ -68,6 +69,7 @@ try {
             a.file_size,
             a.file_path,
             a.created_at,
+            a.uploaded_by,
             u.name as uploaded_by_name
         FROM task_attachments a
         LEFT JOIN users u ON a.uploaded_by = u.id
@@ -99,6 +101,7 @@ try {
         'comments' => array_map(function($comment) {
             return [
                 'id' => (int)$comment['id'],
+                'userId' => (int)$comment['user_id'],
                 'user' => $comment['user_name'],
                 'content' => $comment['content'],
                 'time' => date('M d, Y H:i', strtotime($comment['created_at']))
@@ -110,7 +113,8 @@ try {
                 'name' => $attachment['filename'],
                 'type' => $attachment['file_type'],
                 'size' => $attachment['file_size'],
-                'uploadedBy' => $attachment['uploaded_by_name']
+                'uploadedBy' => $attachment['uploaded_by_name'],
+                'uploadedById' => (int)$attachment['uploaded_by']
             ];
         }, $attachments)
     ];

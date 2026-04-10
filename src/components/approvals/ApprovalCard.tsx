@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Calendar, FileText, Check, X } from "lucide-react";
+import { Calendar, FileText, Check, X, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export type ApprovalStatus = "pending" | "approved" | "rejected";
@@ -15,7 +15,9 @@ interface ApprovalCardProps {
   date: string;
   description?: string;
   status: ApprovalStatus;
+  canModify?: boolean;
   delay?: number;
+  onEdit?: () => void;
   onApprove?: () => void;
   onReject?: () => void;
 }
@@ -32,7 +34,9 @@ export function ApprovalCard({
   date,
   description,
   status,
+  canModify = false,
   delay = 0,
+  onEdit,
   onApprove,
   onReject,
 }: ApprovalCardProps) {
@@ -103,21 +107,41 @@ export function ApprovalCard({
         </div>
 
         {/* Actions */}
-        {status === "pending" && (
+        {status === "pending" && (onApprove || onReject) && (
           <div className="flex items-center gap-2">
-            <button
-              onClick={onReject}
-              className="w-9 h-9 rounded-xl border border-border bg-background flex items-center justify-center text-muted-foreground hover:text-destructive hover:border-destructive/50 hover:bg-destructive/5 transition-all"
-            >
-              <X className="w-4 h-4" />
-            </button>
-            <button
-              onClick={onApprove}
-              className="w-9 h-9 rounded-xl bg-success flex items-center justify-center text-success-foreground hover:bg-success/90 transition-all"
-            >
-              <Check className="w-4 h-4" />
-            </button>
+            {canModify && onEdit && (
+              <button
+                onClick={onEdit}
+                className="w-9 h-9 rounded-xl border border-border bg-background flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/50 hover:bg-primary/5 transition-all"
+              >
+                <Pencil className="w-4 h-4" />
+              </button>
+            )}
+            {onReject && (
+              <button
+                onClick={onReject}
+                className="w-9 h-9 rounded-xl border border-border bg-background flex items-center justify-center text-muted-foreground hover:text-destructive hover:border-destructive/50 hover:bg-destructive/5 transition-all"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+            {onApprove && (
+              <button
+                onClick={onApprove}
+                className="w-9 h-9 rounded-xl bg-success flex items-center justify-center text-success-foreground hover:bg-success/90 transition-all"
+              >
+                <Check className="w-4 h-4" />
+              </button>
+            )}
           </div>
+        )}
+        {status === "pending" && !(onApprove || onReject) && canModify && onEdit && (
+          <button
+            onClick={onEdit}
+            className="w-9 h-9 rounded-xl border border-border bg-background flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/50 hover:bg-primary/5 transition-all"
+          >
+            <Pencil className="w-4 h-4" />
+          </button>
         )}
       </div>
     </motion.div>

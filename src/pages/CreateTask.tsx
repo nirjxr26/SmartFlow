@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowLeft, Calendar, AlertCircle, Save, X } from "lucide-react";
@@ -9,13 +9,32 @@ import Swal from 'sweetalert2';
 export default function CreateTask() {
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [users, setUsers] = useState<Array<{ id: number; name: string; email: string }>>([]);
   const [formData, setFormData] = useState({
     title: "",
     description: "",
     status: "pending" as TaskStatus,
     priority: "medium" as TaskPriority,
     deadline: "",
+    assignee_id: 0,
   });
+
+  // Fetch users list
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const fetchUsers = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/backend/users.php');
+      const data = await response.json();
+      if (data.success && data.users) {
+        setUsers(data.users);
+      }
+    } catch (error) {
+      console.error('Failed to fetch users:', error);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,7 +63,7 @@ export default function CreateTask() {
         body: JSON.stringify({
           ...formData,
           user_id: user.id,
-          assignee_id: user.id,
+          assignee_id: formData.assignee_id || user.id,
         }),
       });
 
@@ -159,6 +178,23 @@ export default function CreateTask() {
               </div>
             </div>
 
+            {/* Assigned To */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-foreground">Assigned To</label>
+              <select
+                value={formData.assignee_id}
+                onChange={(e) => setFormData({ ...formData, assignee_id: parseInt(e.target.value) })}
+                className="w-full px-4 py-3 bg-muted/50 border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all"
+              >
+                <option value="0">Select assignee (defaults to you)</option>
+                {users.map((user) => (
+                  <option key={user.id} value={user.id}>
+                    {user.name} ({user.email})
+                  </option>
+                ))}
+              </select>
+            </div>
+
             {/* Deadline */}
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground flex items-center gap-2">
@@ -178,7 +214,7 @@ export default function CreateTask() {
               <AlertCircle className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
               <div className="text-sm text-muted-foreground">
                 <p className="font-medium text-foreground mb-1">Note</p>
-                The task will be assigned to you by default. You can change the assignee later.
+                If no assignee is selected, the task will be assigned to you by default. You can change the assignee later.
               </div>
             </div>
 

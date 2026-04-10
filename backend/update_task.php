@@ -14,13 +14,34 @@ if (!$data || !isset($data['id'])) {
 }
 
 $taskId = intval($data['id']);
+$userId = isset($data['user_id']) ? intval($data['user_id']) : 0;
 
 try {
-    // Check if task exists
-    $stmt = $pdo->prepare("SELECT id FROM tasks WHERE id = ?");
+    if (!$userId) {
+        echo json_encode(['success' => false, 'message' => 'User ID is required']);
+        exit;
+    }
+
+    $user = flowstone_fetch_user($pdo, $userId);
+    if (!$user) {
+        echo json_encode(['success' => false, 'message' => 'User not found']);
+        exit;
+    }
+
+    // Check if task exists and who owns it
+    $stmt = $pdo->prepare("SELECT id, created_by FROM tasks WHERE id = ?");
     $stmt->execute([$taskId]);
-    if (!$stmt->fetch()) {
+    $task = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$task) {
         echo json_encode(['success' => false, 'message' => 'Task not found']);
+        exit;
+    }
+
+    $isAdmin = flowstone_is_admin_role($user['role'] ?? null);
+    $isOwner = (int)$task['created_by'] === $userId;
+
+    if (!$isAdmin && !$isOwner) {
+        echo json_encode(['success' => false, 'message' => 'You can only update your own tasks']);
         exit;
     }
     

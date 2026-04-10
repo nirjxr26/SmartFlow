@@ -1,28 +1,36 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { ListTodo, Package, ClipboardCheck, BarChart3 } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { KPICard } from "@/components/dashboard/KPICard";
 import { ActivityFeed } from "@/components/dashboard/ActivityFeed";
 import { MiniChart } from "@/components/dashboard/MiniChart";
-import { CheckSquare, Clock, Box, CheckCircle2 } from "lucide-react";
+
+interface KPIData {
+  value: number;
+  change: number;
+  icon?: string;
+  color?: string;
+}
 
 interface DashboardData {
   kpis: {
-    totalTasks: { value: number; change: number };
-    pendingApprovals: { value: number; change: number };
-    resourcesInUse: { value: number; change: number };
-    completedTasks: { value: number; change: number };
+    totalTasks: KPIData;
+    pendingApprovals: KPIData;
+    resourcesInUse: KPIData;
+    completedTasks: KPIData;
   };
   charts: {
     tasksThisWeek: Array<{ name: string; value: number }>;
     resourceUtilization: Array<{ name: string; value: number }>;
     monthlyCompletion: Array<{ name: string; value: number }>;
-    resourceByCategory: Array<{ category: string; available: number; assigned: number; maintenance: number }>;
+    resourceByCategory: Array<{ category: string; icon?: string; available: number; assigned: number; maintenance: number }>;
   };
-  topPerformers: Array<{ name: string; completedTasks: number; avatar: string | null }>;
+  topPerformers: Array<{ name: string; completedTasks: number; avatar: string | null; icon?: string; color?: string }>;
   activities: Array<{
     id: number;
     type: string;
+    icon?: string;
     user: string;
     action: string;
     time: string;
@@ -84,8 +92,8 @@ export default function Dashboard() {
           value={data.kpis.totalTasks.value}
           change={data.kpis.totalTasks.change}
           changeLabel="vs last month"
-          icon={CheckSquare}
-          variant="primary"
+          icon={data.kpis.totalTasks.icon}
+          color={data.kpis.totalTasks.color}
           delay={0}
         />
         <KPICard
@@ -93,8 +101,8 @@ export default function Dashboard() {
           value={data.kpis.pendingApprovals.value}
           change={data.kpis.pendingApprovals.change}
           changeLabel="vs last week"
-          icon={Clock}
-          variant="warning"
+          icon={data.kpis.pendingApprovals.icon}
+          color={data.kpis.pendingApprovals.color}
           delay={0.1}
         />
         <KPICard
@@ -102,8 +110,8 @@ export default function Dashboard() {
           value={data.kpis.resourcesInUse.value}
           change={data.kpis.resourcesInUse.change}
           changeLabel="currently active"
-          icon={Box}
-          variant="accent"
+          icon={data.kpis.resourcesInUse.icon}
+          color={data.kpis.resourcesInUse.color}
           delay={0.2}
         />
         <KPICard
@@ -111,16 +119,16 @@ export default function Dashboard() {
           value={data.kpis.completedTasks.value}
           change={data.kpis.completedTasks.change}
           changeLabel="this month"
-          icon={CheckCircle2}
-          variant="success"
+          icon={data.kpis.completedTasks.icon}
+          color={data.kpis.completedTasks.color}
           delay={0.3}
         />
       </div>
 
       {/* Charts and Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
         <div className="lg:col-span-2 space-y-6">
-          {/* Charts Row */}
+          {/* Top Charts Row */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <MiniChart
               title="Tasks This Week"
@@ -143,19 +151,19 @@ export default function Dashboard() {
             <h2 className="text-sm font-semibold text-foreground mb-5">Quick Actions</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {[
-                { label: "New Task", icon: "📝", onClick: () => navigate("/tasks/create") },
-                { label: "Book Resource", icon: "📦", onClick: () => navigate("/resources") },
-                { label: "Submit Request", icon: "📋", onClick: () => navigate("/approvals") },
-                { label: "View Reports", icon: "📊", onClick: () => navigate("/reports") },
+                { label: "New Task", icon: ListTodo, onClick: () => navigate("/tasks/create") },
+                { label: "Book Resource", icon: Package, onClick: () => navigate("/resources") },
+                { label: "Submit Request", icon: ClipboardCheck, onClick: () => navigate("/approvals") },
+                { label: "View Reports", icon: BarChart3, onClick: () => navigate("/reports") },
               ].map((action) => (
                 <button
                   key={action.label}
                   onClick={action.onClick}
                   className="flex flex-col items-center gap-2 p-5 rounded-xl border border-border hover:border-primary/50 hover:bg-primary/5 transition-all duration-200 group cursor-pointer"
                 >
-                  <span className="text-3xl group-hover:scale-110 transition-transform">
-                    {action.icon}
-                  </span>
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary group-hover:scale-110 group-hover:bg-primary/15 transition-transform">
+                    <action.icon className="h-5 w-5" />
+                  </div>
                   <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground">
                     {action.label}
                   </span>
@@ -163,18 +171,18 @@ export default function Dashboard() {
               ))}
             </div>
           </div>
-            {/* Monthly Completion Chart */}
-            <MiniChart
-              title="Task Completion Trend"
-              data={data.charts.monthlyCompletion}
-              type="line"
-              color="success"
-              delay={0.6}
-            />
+
+          {/* Bottom Chart */}
+          <MiniChart
+            title="Task Completion Trend"
+            data={data.charts.monthlyCompletion}
+            type="line"
+            color="success"
+            delay={0.6}
+          />
         </div>
 
-        {/* Activity Feed */}
-        <div className="lg:col-span-1 lg:row-span-2 flex flex-col">
+        <div className="lg:col-span-1 h-full">
           <ActivityFeed activities={data.activities} />
         </div>
       </div>

@@ -20,6 +20,7 @@ interface TaskCardProps {
   comments?: number;
   attachments?: number;
   delay?: number;
+  canManage?: boolean;
   onClick?: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
@@ -48,6 +49,7 @@ export function TaskCard({
   comments = 0,
   attachments = 0,
   delay = 0,
+  canManage = false,
   onClick,
   onEdit,
   onDelete,
@@ -137,6 +139,7 @@ export function TaskCard({
             </div>
           </div>
           <div className="relative">
+            {canManage && (onEdit || onDelete) && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -146,9 +149,10 @@ export function TaskCard({
             >
               <MoreVertical className="w-4 h-4" />
             </button>
-            
+            )}
+
             <AnimatePresence>
-              {showMenu && (
+              {showMenu && canManage && (onEdit || onDelete) && (
                 <motion.div
                   initial={{ opacity: 0, scale: 0.95, y: -10 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
