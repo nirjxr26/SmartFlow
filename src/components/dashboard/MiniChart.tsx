@@ -23,7 +23,7 @@ interface MiniChartProps {
   title: string;
   data: ChartData[];
   type?: "area" | "bar" | "line";
-  color?: "primary" | "accent" | "success";
+  color?: "primary" | "accent" | "success" | "warning";
   delay?: number;
   className?: string;
 }
@@ -43,6 +43,11 @@ const colorMap = {
     stroke: "hsl(158, 50%, 42%)",
     fill: "hsl(158, 50%, 42%)",
     gradient: ["hsl(158, 50%, 42%)", "hsl(158, 50%, 42%, 0.1)"],
+  },
+  warning: {
+    stroke: "hsl(24, 82%, 48%)",
+    fill: "hsl(24, 82%, 48%)",
+    gradient: ["hsl(24, 82%, 48%)", "hsl(24, 82%, 48%, 0.1)"],
   },
 };
 

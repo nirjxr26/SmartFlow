@@ -85,8 +85,8 @@ export function AdminPanel() {
         await Promise.all([
           fetch("http://localhost:8000/backend/users.php", { headers: getAuthHeaders() }),
           fetch("http://localhost:8000/backend/tasks.php", { headers: getAuthHeaders() }),
-          fetch("http://localhost:8000/backend/approvals.php", { headers: getAuthHeaders() }),
-          fetch("http://localhost:8000/backend/resources.php", { headers: getAuthHeaders() }),
+          fetch(`http://localhost:8000/backend/approvals.php?user_id=${userId || 1}`, { headers: getAuthHeaders() }),
+          fetch(`http://localhost:8000/backend/resources.php?user_id=${userId || 1}`, { headers: getAuthHeaders() }),
           fetch(
             `http://localhost:8000/backend/notifications.php?userId=${userId || 1}&filter=unread`,
             { headers: getAuthHeaders() }
@@ -197,12 +197,6 @@ export function AdminPanel() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold text-foreground">Admin Overview</h2>
-          <p className="text-sm text-muted-foreground">
-            Live operational snapshot from users, tasks, approvals, and resources APIs.
-          </p>
-        </div>
         <button
           onClick={fetchAll}
           className="btn-accent-gradient flex items-center gap-2"

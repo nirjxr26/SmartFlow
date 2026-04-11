@@ -35,6 +35,14 @@ interface DashboardData {
     action: string;
     time: string;
   }>;
+  operationalGroups?: Array<{
+    title: string;
+    items: Array<{
+      label: string;
+      value: string;
+      hint: string;
+    }>;
+  }>;
 }
 
 export default function Dashboard() {
@@ -42,6 +50,7 @@ export default function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [userName, setUserName] = useState("User");
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     fetchDashboardData();
@@ -51,12 +60,27 @@ export default function Dashboard() {
     if (user.name) {
       setUserName(user.name.split(' ')[0]); // First name only
     }
+    setIsAdmin((user.role || '').toLowerCase().includes('admin'));
   }, []);
+
+  const getOperationalMetricRoute = (label: string) => {
+    const normalized = label.toLowerCase();
+
+    if (normalized.includes('approval')) return '/approvals';
+    if (normalized.includes('resource')) return '/resources';
+    if (normalized.includes('notification')) return '/notifications';
+    if (normalized.includes('system')) return '/admin';
+    if (normalized.includes('task') || normalized.includes('workload') || normalized.includes('incident')) return '/tasks';
+
+    return '/dashboard';
+  };
 
   const fetchDashboardData = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch('http://localhost:8000/backend/dashboard.php', {
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      const userId = user?.id || 1;
+      const response = await fetch(`http://localhost:8000/backend/dashboard.php?user_id=${userId}`, {
         headers: {
           'Authorization': localStorage.getItem('token') || '',
         },
@@ -176,8 +200,8 @@ export default function Dashboard() {
           <MiniChart
             title="Task Completion Trend"
             data={data.charts.monthlyCompletion}
-            type="line"
-            color="success"
+            type="area"
+            color="warning"
             delay={0.6}
           />
         </div>
@@ -186,6 +210,44 @@ export default function Dashboard() {
           <ActivityFeed activities={data.activities} />
         </div>
       </div>
+
+      {data.operationalGroups && data.operationalGroups.length > 0 && (
+        <div className="mt-8 space-y-4">
+          <h2 className="text-base font-semibold text-foreground">Operational Metrics</h2>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {data.operationalGroups.map((group) => (
+              <div key={group.title} className="card-elevated p-5">
+                <h3 className="text-sm font-semibold text-foreground mb-4">{group.title}</h3>
+                <div className="space-y-3">
+                  {group.items.map((item) => (
+                    <div
+                      key={item.label}
+                      role={isAdmin ? 'button' : undefined}
+                      tabIndex={isAdmin ? 0 : -1}
+                      onClick={isAdmin ? () => navigate(getOperationalMetricRoute(item.label)) : undefined}
+                      onKeyDown={isAdmin ? (event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          navigate(getOperationalMetricRoute(item.label));
+                        }
+                      } : undefined}
+                      className={`rounded-xl border border-border/60 bg-muted/30 px-3 py-3 transition-colors ${isAdmin ? 'cursor-pointer hover:bg-muted/55' : ''}`}
+                    >
+                      <div className="grid grid-cols-[1fr_5rem] items-center gap-3">
+                        <p className="text-sm font-medium text-foreground/90 leading-5">{item.label}</p>
+                        <div className="w-20 flex items-center justify-center justify-self-center">
+                          <p className="text-base font-semibold text-foreground text-center leading-none">{item.value}</p>
+                        </div>
+                      </div>
+                      <p className="text-xs text-foreground/75 mt-1.5 leading-4">{item.hint}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </AppLayout>
   );
 }

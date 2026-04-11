@@ -207,14 +207,14 @@ try {
             exit;
         }
 
-        if ($approval['status'] !== 'pending') {
-            echo json_encode(['success' => false, 'message' => 'Approval already reviewed']);
-            exit;
-        }
-
         $isOwner = (int)$approval['requested_by'] === $requestUserId;
 
         if ($action === 'modify') {
+            if ($approval['status'] !== 'pending') {
+                echo json_encode(['success' => false, 'message' => 'Only pending approvals can be modified']);
+                exit;
+            }
+
             if (!$isAdmin && !$isOwner) {
                 echo json_encode(['success' => false, 'message' => 'You can only modify your own pending approvals']);
                 exit;
@@ -258,6 +258,22 @@ try {
 
         if (!$isAdmin) {
             echo json_encode(['success' => false, 'message' => 'Only admins can review approvals']);
+            exit;
+        }
+
+        $allowedReviewActionsByStatus = [
+            'pending' => ['approve', 'reject'],
+            'approved' => ['reject'],
+            'rejected' => ['approve'],
+        ];
+
+        $currentStatus = (string)$approval['status'];
+        $allowedActions = $allowedReviewActionsByStatus[$currentStatus] ?? [];
+        if (!in_array($action, $allowedActions, true)) {
+            echo json_encode([
+                'success' => false,
+                'message' => 'Invalid status transition from ' . $currentStatus,
+            ]);
             exit;
         }
 

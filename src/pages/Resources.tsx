@@ -11,9 +11,16 @@ interface Resource {
   name: string;
   type: ResourceType;
   status: ResourceStatus;
-  assignedTo?: { name: string };
+  assignedTo?: { id: number; name: string };
   location?: string;
   description?: string;
+}
+
+interface UserSummary {
+  id: number;
+  name: string;
+  email?: string;
+  role?: string;
 }
 
 const typeFilters = [
@@ -32,29 +39,50 @@ const statusFilters = [
 ];
 
 export default function Resources() {
+  const [currentUser, setCurrentUser] = useState<{ id: number; role?: string }>({ id: 0 });
+  const [isAdmin, setIsAdmin] = useState(false);
   const [typeFilter, setTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [resources, setResources] = useState<Resource[]>([]);
+  const [users, setUsers] = useState<UserSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingResource, setEditingResource] = useState<Resource | null>(null);
   const [isCreatingResource, setIsCreatingResource] = useState(false);
+  const [isUpdatingResource, setIsUpdatingResource] = useState(false);
   const [createResourceError, setCreateResourceError] = useState("");
   const [resourceForm, setResourceForm] = useState({
     name: "",
     type: "device" as ResourceType,
     location: "",
     description: "",
+    status: "available" as ResourceStatus,
+    assignTo: "",
   });
 
   useEffect(() => {
+    try {
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      setCurrentUser(user);
+      setIsAdmin((user.role || '').toLowerCase().includes('admin'));
+    } catch {
+      setCurrentUser({ id: 0 });
+      setIsAdmin(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!currentUser.id) return;
     fetchResources();
-  }, [typeFilter, statusFilter]);
+  }, [typeFilter, statusFilter, currentUser.id]);
 
   const fetchResources = async () => {
     setIsLoading(true);
     try {
       const params = new URLSearchParams();
+      params.append('user_id', String(currentUser.id));
       if (typeFilter !== 'all') params.append('type', typeFilter);
       if (statusFilter !== 'all') params.append('status', statusFilter);
       if (searchQuery) params.append('search', searchQuery);
@@ -68,6 +96,8 @@ export default function Resources() {
 
       if (data.success) {
         setResources(data.resources);
+        setUsers(data.users || []);
+        setIsAdmin(Boolean(data.permissions?.isAdmin));
       }
     } catch (error) {
       console.error('Failed to fetch resources:', error);
@@ -82,6 +112,11 @@ export default function Resources() {
 
   const handleCreateResource = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!isAdmin) {
+      setCreateResourceError('Only admins can add resources');
+      return;
+    }
 
     if (!resourceForm.name.trim()) {
       setCreateResourceError("Please enter a resource name");
@@ -103,6 +138,8 @@ export default function Resources() {
           type: resourceForm.type,
           location: resourceForm.location,
           description: resourceForm.description,
+          assignTo: resourceForm.assignTo ? Number(resourceForm.assignTo) : null,
+          user_id: currentUser.id,
         }),
       });
 
@@ -115,6 +152,8 @@ export default function Resources() {
           type: "device",
           location: "",
           description: "",
+          status: "available",
+          assignTo: "",
         });
         await Swal.fire({
           title: 'Success!',
@@ -139,6 +178,147 @@ export default function Resources() {
     const matchesSearch = resource.name.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesSearch;
   });
+
+  const openEditResourceModal = (resource: Resource) => {
+    setEditingResource(resource);
+    setResourceForm({
+      name: resource.name,
+      type: resource.type,
+      location: resource.location || '',
+      description: resource.description || '',
+      status: resource.status,
+      assignTo: resource.assignedTo?.id ? String(resource.assignedTo.id) : '',
+    });
+    setCreateResourceError('');
+    setIsEditModalOpen(true);
+  };
+
+  const handleUpdateResource = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingResource) return;
+
+    setIsUpdatingResource(true);
+    try {
+      const response = await fetch('http://localhost:8000/backend/resources.php', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: localStorage.getItem('token') || '',
+        },
+        body: JSON.stringify({
+          action: 'update_resource',
+          user_id: currentUser.id,
+          id: editingResource.id,
+          name: resourceForm.name,
+          type: resourceForm.type,
+          location: resourceForm.location,
+          description: resourceForm.description,
+          status: resourceForm.status,
+          assignTo: resourceForm.assignTo ? Number(resourceForm.assignTo) : 0,
+        }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setIsEditModalOpen(false);
+        setEditingResource(null);
+        await Swal.fire({ icon: 'success', title: 'Updated', text: 'Resource updated successfully', confirmButtonColor: '#3b82f6', timer: 1400 });
+        fetchResources();
+      } else {
+        setCreateResourceError(data.message || 'Failed to update resource');
+      }
+    } catch (error) {
+      console.error('Failed to update resource:', error);
+      setCreateResourceError('Failed to update resource');
+    } finally {
+      setIsUpdatingResource(false);
+    }
+  };
+
+  const handleDeleteResource = async (resourceId: number) => {
+    const result = await Swal.fire({
+      title: 'Delete this resource?',
+      text: 'This action cannot be undone.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: 'Delete',
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      const response = await fetch('http://localhost:8000/backend/resources.php', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: localStorage.getItem('token') || '',
+        },
+        body: JSON.stringify({ id: resourceId, user_id: currentUser.id }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        await Swal.fire({ icon: 'success', title: 'Deleted', text: 'Resource deleted', confirmButtonColor: '#3b82f6', timer: 1300 });
+        fetchResources();
+      } else {
+        Swal.fire({ icon: 'error', title: 'Delete failed', text: data.message || 'Unable to delete resource', confirmButtonColor: '#3b82f6' });
+      }
+    } catch (error) {
+      console.error('Failed to delete resource:', error);
+      Swal.fire({ icon: 'error', title: 'Delete failed', text: 'Unable to delete resource', confirmButtonColor: '#3b82f6' });
+    }
+  };
+
+  const handleQuickResourceAction = async (resource: Resource, decision: 'approve' | 'reject') => {
+    const confirmResult = await Swal.fire({
+      title: decision === 'approve' ? 'Approve Resource?' : 'Reject Resource?',
+      text: decision === 'approve'
+        ? `Mark ${resource.name} as available?`
+        : `Mark ${resource.name} as maintenance?`,
+      icon: decision === 'approve' ? 'question' : 'warning',
+      showCancelButton: true,
+      confirmButtonColor: decision === 'approve' ? '#3b82f6' : '#ef4444',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: decision === 'approve' ? 'Yes, approve' : 'Yes, reject',
+      cancelButtonText: 'Cancel',
+    });
+
+    if (!confirmResult.isConfirmed) {
+      return;
+    }
+
+    try {
+      const response = await fetch('http://localhost:8000/backend/resources.php', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: localStorage.getItem('token') || '',
+        },
+        body: JSON.stringify({
+          action: 'update_resource',
+          user_id: currentUser.id,
+          id: resource.id,
+          name: resource.name,
+          type: resource.type,
+          location: resource.location || '',
+          description: resource.description || '',
+          status: decision === 'approve' ? 'available' : 'maintenance',
+          assignTo: decision === 'approve' ? 0 : 0,
+        }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        await Swal.fire({ icon: 'success', title: decision === 'approve' ? 'Approved' : 'Rejected', text: data.message || 'Resource updated', confirmButtonColor: '#3b82f6', timer: 1300 });
+        fetchResources();
+      } else {
+        Swal.fire({ icon: 'error', title: 'Action failed', text: data.message || 'Unable to update resource', confirmButtonColor: '#3b82f6' });
+      }
+    } catch (error) {
+      console.error('Failed to update resource action:', error);
+      Swal.fire({ icon: 'error', title: 'Action failed', text: 'Unable to update resource', confirmButtonColor: '#3b82f6' });
+    }
+  };
 
   return (
     <AppLayout title="Resources" subtitle="Manage and allocate resources across your organization.">
@@ -183,18 +363,22 @@ export default function Resources() {
             ))}
           </select>
 
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="btn-primary-gradient flex items-center gap-2"
-            onClick={() => {
-              setCreateResourceError("");
-              setIsCreateModalOpen(true);
-            }}
-          >
-            <Plus className="w-4 h-4" />
-            <span>Add Resource</span>
-          </motion.button>
+          {isAdmin && (
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="btn-primary-gradient flex items-center gap-2"
+              onClick={() => {
+                setCreateResourceError("");
+                setResourceForm({ name: '', type: 'device', location: '', description: '', status: 'available', assignTo: '' });
+                setIsCreateModalOpen(true);
+              }}
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add Resource</span>
+            </motion.button>
+          )}
+
         </div>
       </div>
 
@@ -237,6 +421,34 @@ export default function Resources() {
                     <option value="software">Software</option>
                     <option value="room">Room</option>
                     <option value="equipment">Equipment</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Status</label>
+                  <select
+                    value={resourceForm.status}
+                    onChange={(e) => setResourceForm((prev) => ({ ...prev, status: e.target.value as ResourceStatus }))}
+                    className="w-full rounded-xl border border-border bg-muted/40 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50"
+                  >
+                    <option value="available">Available</option>
+                    <option value="assigned">Assigned</option>
+                    <option value="maintenance">Maintenance</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Assign To (admin)</label>
+                  <select
+                    value={resourceForm.assignTo}
+                    onChange={(e) => setResourceForm((prev) => ({ ...prev, assignTo: e.target.value }))}
+                    className="w-full rounded-xl border border-border bg-muted/40 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50"
+                  >
+                    <option value="">Unassigned</option>
+                    {users.map((user) => (
+                      <option key={user.id} value={user.id}>{user.name}</option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -290,6 +502,76 @@ export default function Resources() {
         </div>
       )}
 
+      {/* Edit Resource Modal */}
+      {isEditModalOpen && editingResource && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-2xl rounded-2xl border border-border bg-card shadow-2xl">
+            <div className="flex items-center justify-between border-b border-border px-6 py-4">
+              <h3 className="text-lg font-semibold text-foreground">Edit Resource</h3>
+              <button type="button" onClick={() => setIsEditModalOpen(false)} className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateResource} className="space-y-4 px-6 py-5">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Resource Name</label>
+                  <input type="text" value={resourceForm.name} onChange={(e) => setResourceForm((prev) => ({ ...prev, name: e.target.value }))} className="w-full rounded-xl border border-border bg-muted/40 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Type</label>
+                  <select value={resourceForm.type} onChange={(e) => setResourceForm((prev) => ({ ...prev, type: e.target.value as ResourceType }))} className="w-full rounded-xl border border-border bg-muted/40 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50">
+                    <option value="device">Device</option>
+                    <option value="software">Software</option>
+                    <option value="room">Room</option>
+                    <option value="equipment">Equipment</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Status</label>
+                  <select value={resourceForm.status} onChange={(e) => setResourceForm((prev) => ({ ...prev, status: e.target.value as ResourceStatus }))} className="w-full rounded-xl border border-border bg-muted/40 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50">
+                    <option value="available">Available</option>
+                    <option value="assigned">Assigned</option>
+                    <option value="maintenance">Maintenance</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Assign To</label>
+                  <select value={resourceForm.assignTo} onChange={(e) => setResourceForm((prev) => ({ ...prev, assignTo: e.target.value }))} className="w-full rounded-xl border border-border bg-muted/40 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50">
+                    <option value="">Unassigned</option>
+                    {users.map((user) => (
+                      <option key={user.id} value={user.id}>{user.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">Location</label>
+                <input type="text" value={resourceForm.location} onChange={(e) => setResourceForm((prev) => ({ ...prev, location: e.target.value }))} className="w-full rounded-xl border border-border bg-muted/40 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50" />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">Description</label>
+                <textarea value={resourceForm.description} onChange={(e) => setResourceForm((prev) => ({ ...prev, description: e.target.value }))} rows={4} className="w-full rounded-xl border border-border bg-muted/40 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50" />
+              </div>
+
+              {createResourceError && <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{createResourceError}</div>}
+
+              <div className="flex items-center justify-end gap-2 border-t border-border pt-4">
+                <button type="button" onClick={() => setIsEditModalOpen(false)} className="rounded-xl border border-border px-4 py-2.5 text-sm text-foreground hover:bg-muted">Cancel</button>
+                <button type="submit" disabled={isUpdatingResource} className="rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60">
+                  {isUpdatingResource ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Type Filters */}
       <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-2">
         {typeFilters.map((filter) => {
@@ -321,11 +603,15 @@ export default function Resources() {
 
       {/* Resources Grid */}
       {!isLoading && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 auto-rows-fr gap-5">
           {filteredResources.map((resource, index) => (
             <ResourceCard
               key={resource.id}
               {...resource}
+              isAdmin={isAdmin}
+              onModify={() => openEditResourceModal(resource)}
+              onApprove={() => handleQuickResourceAction(resource, 'approve')}
+              onReject={() => handleQuickResourceAction(resource, 'reject')}
               delay={index * 0.05}
             />
           ))}
@@ -352,6 +638,7 @@ export default function Resources() {
           </p>
         </motion.div>
       )}
+
     </AppLayout>
   );
 }

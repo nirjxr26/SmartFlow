@@ -696,8 +696,8 @@ export default function Approvals() {
               delay={index * 0.1}
               canModify={Boolean(approval.canModify)}
               onEdit={approval.canModify ? () => openEditModal(approval) : undefined}
-              onApprove={isAdmin ? () => handleApprove(approval.id) : undefined}
-              onReject={isAdmin ? () => handleReject(approval.id) : undefined}
+              onApprove={isAdmin && (approval.status === 'pending' || approval.status === 'rejected') ? () => handleApprove(approval.id) : undefined}
+              onReject={isAdmin && (approval.status === 'pending' || approval.status === 'approved') ? () => handleReject(approval.id) : undefined}
             />
           ))}
         </div>

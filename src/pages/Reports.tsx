@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Download, Calendar, TrendingUp, Users, CheckCircle2, Box } from "lucide-react";
+import { Download, Calendar, TrendingUp, Users, CheckCircle2, Box, RotateCcw, AlertCircle } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   AreaChart,
   Area,
@@ -9,8 +10,6 @@ import {
   YAxis,
   Tooltip,
   ResponsiveContainer,
-  BarChart,
-  Bar,
   PieChart,
   Pie,
   Cell,
@@ -23,38 +22,101 @@ interface ReportData {
     resourceUtilization: { value: string; change: string };
     avgCompletionTime: { value: string; change: string };
   };
+  period: {
+    startDate: string;
+    endDate: string;
+    label: string;
+  };
+  quickMetrics: Array<{
+    title: string;
+    value: string;
+    hint: string;
+  }>;
   monthlyTasks: Array<{ name: string; completed: number; created: number }>;
   userPerformance: Array<{ name: string; tasks: number }>;
   resourceUtilization: Array<{ name: string; value: number; color: string }>;
 }
 
+const getDefaultDateRange = () => {
+  const endDate = new Date();
+  const startDate = new Date(endDate.getFullYear(), endDate.getMonth() - 11, 1);
+
+  const formatDate = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  return {
+    startDate: formatDate(startDate),
+    endDate: formatDate(endDate),
+  };
+};
+
 export default function Reports() {
+  const defaults = getDefaultDateRange();
   const [data, setData] = useState<ReportData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
+  const [isMembersDialogOpen, setIsMembersDialogOpen] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [startDate, setStartDate] = useState(defaults.startDate);
+  const [endDate, setEndDate] = useState(defaults.endDate);
+
+  const isDateRangeInvalid = startDate > endDate;
 
   useEffect(() => {
+    if (isDateRangeInvalid) {
+      return;
+    }
     fetchReportsData();
-  }, []);
+  }, [startDate, endDate]);
 
   const fetchReportsData = async () => {
     setIsLoading(true);
+    setErrorMessage("");
+
     try {
-      const response = await fetch('http://localhost:8000/backend/reports.php', {
+      const user = JSON.parse(localStorage.getItem("user") || "{}");
+      const params = new URLSearchParams({
+        start_date: startDate,
+        end_date: endDate,
+      });
+
+      if (user?.id) {
+        params.append("user_id", String(user.id));
+      }
+
+      const response = await fetch(`http://localhost:8000/backend/reports.php?${params.toString()}`, {
         headers: {
-          'Authorization': localStorage.getItem('token') || '',
+          Authorization: localStorage.getItem("token") || "",
         },
       });
+
+      if (!response.ok) {
+        throw new Error(`Failed request with status ${response.status}`);
+      }
+
       const result = await response.json();
 
       if (result.success) {
         setData(result);
+      } else {
+        throw new Error(result.message || "Failed to load reports data");
       }
     } catch (error) {
-      console.error('Failed to fetch reports data:', error);
+      console.error("Failed to fetch reports data:", error);
+      setErrorMessage(error instanceof Error ? error.message : "Failed to fetch reports data");
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleResetDateRange = () => {
+    const range = getDefaultDateRange();
+    setStartDate(range.startDate);
+    setEndDate(range.endDate);
   };
 
   const csvEscape = (value: string | number) => {
@@ -82,6 +144,13 @@ export default function Reports() {
       lines.push(`Active Users,${csvEscape(data.kpis.activeUsers.value)},${csvEscape(data.kpis.activeUsers.change)}`);
       lines.push(`Resources Utilized,${csvEscape(data.kpis.resourceUtilization.value)},${csvEscape(data.kpis.resourceUtilization.change)}`);
       lines.push(`Avg Completion Time,${csvEscape(data.kpis.avgCompletionTime.value)},${csvEscape(data.kpis.avgCompletionTime.change)}`);
+      lines.push("");
+
+      lines.push("Quick Insights");
+      lines.push("Metric,Value,Hint");
+      data.quickMetrics.forEach((item) => {
+        lines.push(`${csvEscape(item.title)},${csvEscape(item.value)},${csvEscape(item.hint)}`);
+      });
       lines.push("");
 
       lines.push("Monthly Tasks");
@@ -130,7 +199,7 @@ export default function Reports() {
     }
   };
 
-  if (isLoading || !data) {
+  if (isLoading && !data) {
     return (
       <AppLayout title="Reports & Analytics" subtitle="Comprehensive insights into your workflow and resources.">
         <div className="flex items-center justify-center h-64">
@@ -140,6 +209,35 @@ export default function Reports() {
     );
   }
 
+  if (!isLoading && !data) {
+    return (
+      <AppLayout title="Reports & Analytics" subtitle="Comprehensive insights into your workflow and resources.">
+        <div className="card-elevated p-6 max-w-2xl mx-auto mt-10">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-destructive mt-0.5" />
+            <div>
+              <h3 className="text-lg font-semibold text-foreground mb-1">Unable to load reports</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                {errorMessage || "An unexpected error occurred while fetching analytics."}
+              </p>
+              <button
+                type="button"
+                onClick={fetchReportsData}
+                className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+              >
+                Retry
+              </button>
+            </div>
+          </div>
+        </div>
+      </AppLayout>
+    );
+  }
+
+  if (!data) {
+    return null;
+  }
+
   const kpiData = [
     { title: "Total Tasks Completed", value: data.kpis.totalCompleted.value, change: data.kpis.totalCompleted.change, icon: CheckCircle2 },
     { title: "Active Users", value: data.kpis.activeUsers.value, change: data.kpis.activeUsers.change, icon: Users },
@@ -147,27 +245,66 @@ export default function Reports() {
     { title: "Avg. Completion Time", value: data.kpis.avgCompletionTime.value, change: data.kpis.avgCompletionTime.change, icon: TrendingUp },
   ];
 
+  const shouldShowMembersPopup = data.userPerformance.length > 12;
+  const visiblePerformers = shouldShowMembersPopup ? data.userPerformance.slice(0, 12) : data.userPerformance;
+
   return (
     <AppLayout title="Reports & Analytics" subtitle="Comprehensive insights into your workflow and resources.">
       {/* Header Actions */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 px-4 py-2 bg-card border border-border rounded-xl text-sm">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="flex items-center gap-2 px-4 py-2 bg-card border border-border rounded-xl text-sm w-fit">
             <Calendar className="w-4 h-4 text-muted-foreground" />
-            <span className="text-muted-foreground">Jan 1 - Dec 18, 2024</span>
+            <span className="text-muted-foreground">{data.period?.label || `${startDate} - ${endDate}`}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="date"
+              value={startDate}
+              max={endDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="px-3 py-2 bg-card border border-border rounded-xl text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50"
+            />
+            <span className="text-muted-foreground text-sm">to</span>
+            <input
+              type="date"
+              value={endDate}
+              min={startDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="px-3 py-2 bg-card border border-border rounded-xl text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50"
+            />
+            <button
+              type="button"
+              onClick={handleResetDateRange}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-border bg-card text-sm text-muted-foreground hover:text-foreground"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              Reset
+            </button>
           </div>
         </div>
-        <motion.button
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={handleExportReport}
-          disabled={isExporting || !data}
-          className="btn-accent-gradient flex items-center gap-2"
-        >
-          <Download className="w-4 h-4" />
-          <span>{isExporting ? "Exporting..." : "Export Report"}</span>
-        </motion.button>
+        <div className="flex items-center gap-3">
+          {isDateRangeInvalid ? (
+            <p className="text-xs text-destructive">Start date must be before end date.</p>
+          ) : null}
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={handleExportReport}
+            disabled={isExporting || !data}
+            className="btn-accent-gradient flex items-center gap-2"
+          >
+            <Download className="w-4 h-4" />
+            <span>{isExporting ? "Exporting..." : "Export Report"}</span>
+          </motion.button>
+        </div>
       </div>
+
+      {errorMessage ? (
+        <div className="mb-5 rounded-xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning">
+          Showing last successful report data. Latest refresh failed: {errorMessage}
+        </div>
+      ) : null}
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
@@ -183,10 +320,29 @@ export default function Reports() {
               <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
                 <kpi.icon className="w-5 h-5 text-primary" />
               </div>
-              <span className="text-xs font-semibold text-success">{kpi.change}</span>
+              <span className={`text-xs font-semibold ${kpi.change.startsWith("-") ? "text-destructive" : "text-success"}`}>
+                {kpi.change}
+              </span>
             </div>
             <h3 className="text-2xl font-bold text-foreground mb-1">{kpi.value}</h3>
             <p className="text-sm text-muted-foreground">{kpi.title}</p>
+          </motion.div>
+        ))}
+      </div>
+
+      {/* Quick Insights */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        {data.quickMetrics.map((metric, index) => (
+          <motion.div
+            key={metric.title}
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 + index * 0.06 }}
+            className="rounded-xl border border-border bg-card/70 px-4 py-3"
+          >
+            <p className="text-xs font-medium text-muted-foreground mb-1">{metric.title}</p>
+            <p className="text-xl font-bold text-foreground leading-none mb-1.5">{metric.value}</p>
+            <p className="text-xs text-muted-foreground">{metric.hint}</p>
           </motion.div>
         ))}
       </div>
@@ -261,39 +417,79 @@ export default function Reports() {
           transition={{ delay: 0.4 }}
           className="card-elevated p-6"
         >
-          <h3 className="text-lg font-semibold text-foreground mb-6">Top Performers</h3>
-          <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={data.userPerformance} layout="vertical" barSize={20}>
-                <XAxis
-                  type="number"
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
-                />
-                <YAxis
-                  type="category"
-                  dataKey="name"
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
-                  width={80}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "hsl(var(--card))",
-                    border: "1px solid hsl(var(--border))",
-                    borderRadius: "12px",
-                    boxShadow: "var(--shadow-lg)",
-                  }}
-                  cursor={{ fill: "hsl(var(--muted))", radius: 8 }}
-                />
-                <Bar dataKey="tasks" fill="hsl(174, 42%, 42%)" radius={[0, 8, 8, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+          <div className="flex items-start justify-between gap-3 mb-6">
+            <h3 className="text-lg font-semibold text-foreground">Top Performers</h3>
+            {shouldShowMembersPopup ? (
+              <button
+                type="button"
+                onClick={() => setIsMembersDialogOpen(true)}
+                className="text-xs sm:text-sm font-semibold text-primary hover:underline whitespace-nowrap"
+              >
+                View all members ({data.userPerformance.length})
+              </button>
+            ) : null}
           </div>
+          <div
+            className={`grid gap-3 ${visiblePerformers.length > 6 ? "md:grid-cols-2" : "grid-cols-1"}`}
+          >
+            {visiblePerformers.length > 0 ? visiblePerformers.map((user, index) => (
+              <motion.div
+                key={`${user.name}-${index}`}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.45 + index * 0.04 }}
+                className="rounded-lg border border-border/80 bg-background/70 px-4 py-3"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-medium text-foreground whitespace-normal break-words leading-snug">
+                    {user.name}
+                  </p>
+                  <p className="text-sm font-semibold text-primary whitespace-nowrap">
+                    {user.tasks} completed
+                  </p>
+                </div>
+              </motion.div>
+            )) : (
+              <p className="text-sm text-muted-foreground">No completed task data found in this period.</p>
+            )}
+          </div>
+          {shouldShowMembersPopup ? (
+            <p className="text-xs text-muted-foreground mt-4">
+              Showing first 12 performers. Press "View all members" to see everyone.
+            </p>
+          ) : null}
         </motion.div>
       </div>
+
+      <Dialog open={isMembersDialogOpen} onOpenChange={setIsMembersDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden">
+          <DialogHeader>
+            <DialogTitle>All Top Performers</DialogTitle>
+            <DialogDescription>
+              Complete member list with their completed task counts.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="overflow-y-auto pr-1">
+            <div className={`grid gap-3 ${data.userPerformance.length > 10 ? "md:grid-cols-2" : "grid-cols-1"}`}>
+              {data.userPerformance.map((user, index) => (
+                <div
+                  key={`all-members-${user.name}-${index}`}
+                  className="rounded-lg border border-border/80 bg-background/70 px-4 py-3"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-medium text-foreground whitespace-normal break-words leading-snug">
+                      {user.name}
+                    </p>
+                    <p className="text-sm font-semibold text-primary whitespace-nowrap">
+                      {user.tasks} completed
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Resource Utilization */}
       <motion.div

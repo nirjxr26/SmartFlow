@@ -107,9 +107,9 @@ export function ApprovalCard({
         </div>
 
         {/* Actions */}
-        {status === "pending" && (onApprove || onReject) && (
+        {(onApprove || onReject || (status === "pending" && canModify && onEdit)) && (
           <div className="flex items-center gap-2">
-            {canModify && onEdit && (
+            {status === "pending" && canModify && onEdit && (
               <button
                 onClick={onEdit}
                 className="w-9 h-9 rounded-xl border border-border bg-background flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/50 hover:bg-primary/5 transition-all"
@@ -134,14 +134,6 @@ export function ApprovalCard({
               </button>
             )}
           </div>
-        )}
-        {status === "pending" && !(onApprove || onReject) && canModify && onEdit && (
-          <button
-            onClick={onEdit}
-            className="w-9 h-9 rounded-xl border border-border bg-background flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/50 hover:bg-primary/5 transition-all"
-          >
-            <Pencil className="w-4 h-4" />
-          </button>
         )}
       </div>
     </motion.div>
