@@ -28,52 +28,52 @@ try {
         exit;
     }
 
-    // Check if task exists and who owns it
-    $stmt = $pdo->prepare("SELECT id, created_by FROM tasks WHERE id = ?");
+    // Check if task exists and who owns it.
+    $stmt = $pdo->prepare("SELECT id, title, created_by, assignee_id, status FROM tasks WHERE id = ?");
     $stmt->execute([$taskId]);
-    $task = $stmt->fetch(PDO::FETCH_ASSOC);
-    if (!$task) {
+    $existingTask = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$existingTask) {
         echo json_encode(['success' => false, 'message' => 'Task not found']);
         exit;
     }
 
     $isAdmin = flowstone_is_admin_role($user['role'] ?? null);
-    $isOwner = (int)$task['created_by'] === $userId;
+    $isOwner = (int)$existingTask['created_by'] === $userId;
 
     if (!$isAdmin && !$isOwner) {
         echo json_encode(['success' => false, 'message' => 'You can only update your own tasks']);
         exit;
     }
-    
-    // Build update query dynamically
+
+    // Build update query dynamically.
     $updateFields = [];
     $params = [];
-    
+
     if (isset($data['title']) && !empty(trim($data['title']))) {
         $updateFields[] = "title = ?";
         $params[] = trim($data['title']);
     }
-    
+
     if (isset($data['description'])) {
         $updateFields[] = "description = ?";
         $params[] = !empty(trim($data['description'])) ? trim($data['description']) : null;
     }
-    
+
     if (isset($data['status']) && in_array($data['status'], ['pending', 'in-progress', 'review', 'completed'])) {
         $updateFields[] = "status = ?";
         $params[] = $data['status'];
     }
-    
+
     if (isset($data['priority']) && in_array($data['priority'], ['low', 'medium', 'high'])) {
         $updateFields[] = "priority = ?";
         $params[] = $data['priority'];
     }
-    
+
     if (isset($data['assignee_id'])) {
         $updateFields[] = "assignee_id = ?";
         $params[] = $data['assignee_id'] ? intval($data['assignee_id']) : null;
     }
-    
+
     if (isset($data['deadline'])) {
         if (!empty($data['deadline'])) {
             $deadlineObj = DateTime::createFromFormat('Y-m-d', $data['deadline']);
@@ -87,22 +87,21 @@ try {
             $updateFields[] = "deadline = NULL";
         }
     }
-    
+
     if (empty($updateFields)) {
         echo json_encode(['success' => false, 'message' => 'No fields to update']);
         exit;
     }
-    
-    // Execute update
+
+    // Execute update.
     $sql = "UPDATE tasks SET " . implode(', ', $updateFields) . " WHERE id = ?";
     $params[] = $taskId;
-    
+
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
-    
-    // Fetch updated task
-    $stmt = $pdo->prepare("
-        SELECT 
+
+    // Fetch updated task.
+    $stmt = $pdo->prepare("\n        SELECT 
             t.id,
             t.title,
             t.description,
@@ -111,6 +110,8 @@ try {
             t.deadline,
             t.created_at,
             t.updated_at,
+            t.created_by,
+            t.assignee_id,
             u.name as assignee_name,
             u.email as assignee_email,
             creator.name as created_by_name,
@@ -123,7 +124,50 @@ try {
     ");
     $stmt->execute([$taskId]);
     $task = $stmt->fetch(PDO::FETCH_ASSOC);
-    
+
+    if ($isAdmin) {
+        $notifyStmt = $pdo->prepare("\n            INSERT INTO notifications (user_id, type, title, message)
+            VALUES (:user_id, :type, :title, :message)
+        ");
+
+        $newAssigneeId = (int)($task['assignee_id'] ?? 0);
+        $oldAssigneeId = (int)($existingTask['assignee_id'] ?? 0);
+        $creatorId = (int)$task['created_by'];
+        $taskTitle = $task['title'];
+
+        $baseRecipients = array_unique(array_filter([$creatorId, $newAssigneeId]));
+        foreach ($baseRecipients as $recipientId) {
+            if ($recipientId === $userId) {
+                continue;
+            }
+
+            $notifyStmt->execute([
+                ':user_id' => $recipientId,
+                ':type' => 'info',
+                ':title' => 'Task Updated',
+                ':message' => 'Task "' . $taskTitle . '" was updated by an administrator',
+            ]);
+        }
+
+        if ($newAssigneeId > 0 && $newAssigneeId !== $oldAssigneeId && $newAssigneeId !== $userId) {
+            $notifyStmt->execute([
+                ':user_id' => $newAssigneeId,
+                ':type' => 'success',
+                ':title' => 'Task Assigned',
+                ':message' => 'You were assigned to task: ' . $taskTitle,
+            ]);
+        }
+
+        if ($oldAssigneeId > 0 && $oldAssigneeId !== $newAssigneeId && $oldAssigneeId !== $userId) {
+            $notifyStmt->execute([
+                ':user_id' => $oldAssigneeId,
+                ':type' => 'warning',
+                ':title' => 'Task Unassigned',
+                ':message' => 'You were unassigned from task: ' . $taskTitle,
+            ]);
+        }
+    }
+
     $response = [
         'id' => (int)$task['id'],
         'title' => $task['title'],
@@ -141,13 +185,13 @@ try {
         'comments' => (int)$task['comments_count'],
         'attachments' => (int)$task['attachments_count']
     ];
-    
+
     echo json_encode([
         'success' => true,
         'message' => 'Task updated successfully',
         'task' => $response
     ]);
-    
+
 } catch (PDOException $e) {
     echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
 }

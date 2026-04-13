@@ -165,7 +165,7 @@ export function ActivityFeed({ activities = [] }: ActivityFeedProps) {
       </div>
 
       <Dialog open={isAllActivityOpen} onOpenChange={setIsAllActivityOpen}>
-        <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden">
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-3xl max-h-[85vh] overflow-hidden rounded-2xl">
           <DialogHeader>
             <DialogTitle>All Recent Activity</DialogTitle>
             <DialogDescription>

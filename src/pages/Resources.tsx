@@ -44,8 +44,8 @@ const typeFilters = [
 ];
 
 const statusFilters = [
-  { key: "assigned", label: "Assigned" },
   { key: "available", label: "Available" },
+  { key: "assigned", label: "Assigned" },
   { key: "maintenance", label: "Maintenance" },
   { key: "requested", label: "Requested" },
   { key: "rejected", label: "Rejected" },
@@ -56,7 +56,7 @@ export default function Resources() {
   const [currentUser, setCurrentUser] = useState<{ id: number; role?: string }>({ id: 0 });
   const [isAdmin, setIsAdmin] = useState(false);
   const [typeFilter, setTypeFilter] = useState("all");
-  const [statusFilter, setStatusFilter] = useState("assigned");
+  const [statusFilter, setStatusFilter] = useState("available");
   const [searchQuery, setSearchQuery] = useState("");
   const [resources, setResources] = useState<Resource[]>([]);
   const [users, setUsers] = useState<UserSummary[]>([]);
@@ -73,6 +73,7 @@ export default function Resources() {
   const [createResourceError, setCreateResourceError] = useState("");
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
   const [draftTypeFilter, setDraftTypeFilter] = useState("all");
+  const [draftStatusFilter, setDraftStatusFilter] = useState("available");
   const [draftStartDate, setDraftStartDate] = useState("");
   const [draftEndDate, setDraftEndDate] = useState("");
   const [resourceForm, setResourceForm] = useState({
@@ -88,7 +89,9 @@ export default function Resources() {
     try {
       const user = JSON.parse(localStorage.getItem('user') || '{}');
       setCurrentUser(user);
-      setIsAdmin((user.role || '').toLowerCase().includes('admin'));
+      const admin = (user.role || '').toLowerCase().includes('admin');
+      setIsAdmin(admin);
+      setStatusFilter(admin ? "available" : "assigned");
     } catch {
       setCurrentUser({ id: 0 });
       setIsAdmin(false);
@@ -230,6 +233,7 @@ export default function Resources() {
 
   const handleOpenFilterPanel = () => {
     setDraftTypeFilter(typeFilter);
+    setDraftStatusFilter(statusFilter);
     setDraftStartDate("");
     setDraftEndDate("");
     setIsFilterPanelOpen(true);
@@ -237,15 +241,17 @@ export default function Resources() {
 
   const handleApplyFilters = () => {
     setTypeFilter(draftTypeFilter);
+    setStatusFilter(draftStatusFilter);
     setIsFilterPanelOpen(false);
   };
 
   const handleResetFilters = () => {
     setDraftTypeFilter("all");
+    setDraftStatusFilter(isAdmin ? "available" : "assigned");
     setDraftStartDate("");
     setDraftEndDate("");
     setTypeFilter("all");
-    setStatusFilter("assigned");
+    setStatusFilter(isAdmin ? "available" : "assigned");
     setIsFilterPanelOpen(false);
   };
 
@@ -391,21 +397,57 @@ export default function Resources() {
       return;
     }
 
-    const options = users.reduce<Record<string, string>>((acc, user) => {
-      acc[String(user.id)] = user.name;
-      return acc;
-    }, {});
+    const optionsMarkup = users
+      .map((user) => `<option value="${user.id}">${user.name}</option>`)
+      .join('');
 
     const pick = await Swal.fire({
       title: 'Assign Resource',
-      input: 'select',
-      inputOptions: options,
-      inputPlaceholder: 'Select a user',
+      html: `
+        <div style="text-align:left; margin-top: 0.5rem;">
+          <label for="assign-user-select" style="display:block; font-size:0.875rem; font-weight:600; color:#475569; margin-bottom:0.5rem;">
+            Select a user
+          </label>
+          <select
+            id="assign-user-select"
+            style="
+              width:100%;
+              -webkit-appearance:none;
+              -moz-appearance:none;
+              appearance:none;
+              padding:0.75rem 2.75rem 0.75rem 0.9rem;
+              border:1px solid #cbd5e1;
+              border-radius:0.75rem;
+              font-size:0.95rem;
+              color:#0f172a;
+              background:#ffffff;
+              background-image:url('data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'16\' height=\'16\' viewBox=\'0 0 16 16\' fill=\'none\'%3E%3Cpath d=\'M4 6L8 10L12 6\' stroke=\'%2364748B\' stroke-width=\'1.8\' stroke-linecap=\'round\' stroke-linejoin=\'round\'/%3E%3C/svg%3E');
+              background-repeat:no-repeat;
+              background-size:1rem 1rem;
+              background-position:right 0.85rem center;
+              outline:none;
+            "
+          >
+            <option value="">Select a user</option>
+            ${optionsMarkup}
+          </select>
+        </div>
+      `,
       showCancelButton: true,
       confirmButtonText: 'Assign',
-      confirmButtonColor: '#3b82f6',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#2563eb',
       cancelButtonColor: '#64748b',
-      inputValidator: (value) => (!value ? 'Please select a user' : undefined),
+      focusConfirm: false,
+      preConfirm: () => {
+        const select = document.getElementById('assign-user-select') as HTMLSelectElement | null;
+        const value = select?.value || '';
+        if (!value) {
+          Swal.showValidationMessage('Please select a user');
+          return null;
+        }
+        return value;
+      },
     });
 
     if (!pick.isConfirmed || !pick.value) {
@@ -587,9 +629,9 @@ export default function Resources() {
       {/* Header with Search and Filters */}
       <div className="flex flex-col gap-4 mb-6">
         {/* Search and Filter Row */}
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+        <div className="relative min-w-0 flex flex-1 w-full sm:w-auto items-center gap-2 flex-nowrap sm:flex-wrap">
           {/* Search */}
-          <div className="relative min-w-0 max-w-sm w-full">
+          <div className="relative min-w-0 flex-1 w-full sm:w-auto sm:max-w-xs">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input
               type="text"
@@ -613,28 +655,53 @@ export default function Resources() {
           </div>
 
           {/* Filter Icon Button with Popup */}
-          <div className="relative">
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={handleOpenFilterPanel}
-              className="p-2.5 rounded-xl border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
-            >
-              <Filter className="w-4 h-4" />
-            </motion.button>
+          <button
+            type="button"
+            onClick={handleOpenFilterPanel}
+            className={cn(
+              "h-10 w-10 shrink-0 rounded-xl border border-border/70 bg-card text-muted-foreground flex items-center justify-center transition-all duration-200",
+              "hover:text-foreground hover:border-border hover:bg-muted/40",
+              isFilterPanelOpen && "text-primary border-primary/40 bg-primary/10"
+            )}
+            aria-label="Open filters"
+          >
+            <Filter className="w-4 h-4" />
+          </button>
 
-            {/* Filter Panel Dropdown */}
+          {/* Add Resource Button */}
+          {isAdmin && (
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              type="button"
+              onClick={() => {
+                setCreateResourceError("");
+                setResourceForm({ name: '', type: 'device', location: '', description: '', status: 'available', assignTo: '' });
+                setIsCreateModalOpen(true);
+              }}
+              className="btn-primary-gradient h-10 w-10 sm:w-auto sm:px-4 shrink-0 sm:ml-auto flex items-center justify-center gap-2 text-white"
+              aria-label="Add resource"
+              title="Add resource"
+            >
+              <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline text-sm font-medium">Add Resource</span>
+            </motion.button>
+          )}
+
+          {/* Filter Panel Dropdown */}
+          <div className="relative">
+
             {isFilterPanelOpen && (
               <motion.div
                 initial={{ opacity: 0, y: -8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.15 }}
-                className="absolute top-full mt-2 -left-32 z-50 w-80 rounded-xl border border-border bg-card shadow-lg p-4 space-y-4"
+                className="absolute right-0 top-full mt-2 z-50 w-[min(100%,24rem)] rounded-xl border border-border bg-card shadow-lg p-4 space-y-4"
               >
                   {/* Type Filter Group */}
                   <div className="space-y-2">
-                    <label className="text-xs font-semibold text-muted-foreground">Type</label>
+                    <label className="text-sm font-semibold text-muted-foreground">Type</label>
                     <div className="flex flex-wrap gap-2">
                       {typeFilters.map((filter) => {
                         const Icon = filter.icon;
@@ -643,7 +710,7 @@ export default function Resources() {
                             key={filter.key}
                             onClick={() => setDraftTypeFilter(filter.key)}
                             className={cn(
-                              "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
+                              "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all",
                               draftTypeFilter === filter.key
                                 ? "bg-primary text-primary-foreground"
                                 : "bg-muted text-muted-foreground hover:bg-muted/70"
@@ -660,21 +727,38 @@ export default function Resources() {
                     </div>
                   </div>
 
+                  <div className="h-px bg-border/60" />
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-muted-foreground">Status</label>
+                    <select
+                      value={draftStatusFilter}
+                      onChange={(e) => setDraftStatusFilter(e.target.value)}
+                      className="w-full rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50"
+                    >
+                      {statusFilters.map((filter) => (
+                        <option key={filter.key} value={filter.key}>
+                          {filter.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
                   {/* Date Filter Group */}
                   <div className="space-y-2">
-                    <label className="text-xs font-semibold text-muted-foreground">Date Range</label>
+                    <label className="text-sm font-semibold text-muted-foreground">Date Range</label>
                     <div className="space-y-2">
                       <input
                         type="date"
                         value={draftStartDate}
                         onChange={(e) => setDraftStartDate(e.target.value)}
-                        className="w-full rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50"
+                        className="w-full rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50"
                       />
                       <input
                         type="date"
                         value={draftEndDate}
                         onChange={(e) => setDraftEndDate(e.target.value)}
-                        className="w-full rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50"
+                        className="w-full rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50"
                       />
                     </div>
                   </div>
@@ -683,13 +767,13 @@ export default function Resources() {
                   <div className="flex items-center justify-end gap-2 border-t border-border pt-3">
                     <button
                       onClick={handleResetFilters}
-                      className="px-3 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:bg-muted transition-all"
+                      className="px-3 py-1.5 rounded-lg text-sm font-medium text-muted-foreground hover:bg-muted transition-all"
                     >
                       Reset
                     </button>
                     <button
                       onClick={handleApplyFilters}
-                      className="px-3 py-1.5 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-all"
+                      className="px-3 py-1.5 rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-all"
                     >
                       Apply
                     </button>
@@ -697,33 +781,16 @@ export default function Resources() {
               </motion.div>
             )}
           </div>
-
-          {/* Add Resource Button */}
-          {isAdmin && (
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="btn-primary-gradient flex items-center gap-2 ml-auto"
-              onClick={() => {
-                setCreateResourceError("");
-                setResourceForm({ name: '', type: 'device', location: '', description: '', status: 'available', assignTo: '' });
-                setIsCreateModalOpen(true);
-              }}
-            >
-              <Plus className="w-4 h-4" />
-              <span>Add Resource</span>
-            </motion.button>
-          )}
         </div>
 
         {/* Status Filter Pills Row */}
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="hidden sm:flex flex-wrap items-center gap-2">
           {statusFilters.map((filter) => (
             <button
               key={filter.key}
               onClick={() => setStatusFilter(filter.key)}
               className={cn(
-                "inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium whitespace-nowrap transition-all",
+                "inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all",
                 statusFilter === filter.key
                   ? "bg-primary text-primary-foreground"
                   : "bg-card border border-border text-muted-foreground hover:text-foreground hover:bg-muted"
@@ -754,8 +821,8 @@ export default function Resources() {
       {/* Create Resource Modal */}
       {isCreateModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-2xl rounded-2xl border border-border bg-card shadow-2xl">
-            <div className="flex items-center justify-between border-b border-border px-6 py-4">
+          <div className="w-full max-w-2xl max-h-[92vh] rounded-2xl border border-border bg-card shadow-2xl flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between border-b border-border px-4 sm:px-6 py-4">
               <h3 className="text-lg font-semibold text-foreground">Add New Resource</h3>
               <button
                 type="button"
@@ -766,7 +833,7 @@ export default function Resources() {
               </button>
             </div>
 
-            <form onSubmit={handleCreateResource} className="space-y-4 px-6 py-5">
+            <form onSubmit={handleCreateResource} className="space-y-4 px-4 sm:px-6 py-5 overflow-y-auto">
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div>
                   <label className="mb-1 block text-xs font-medium text-muted-foreground">Resource Name</label>
@@ -850,11 +917,11 @@ export default function Resources() {
                 </div>
               )}
 
-              <div className="flex items-center justify-end gap-2 border-t border-border pt-4">
+              <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 border-t border-border pt-4">
                 <button
                   type="button"
                   onClick={() => setIsCreateModalOpen(false)}
-                  className="rounded-xl border border-border px-4 py-2.5 text-sm text-foreground hover:bg-muted"
+                  className="w-full sm:w-auto rounded-xl border border-border px-4 py-2.5 text-sm text-foreground hover:bg-muted"
                 >
                   Cancel
                 </button>
@@ -874,15 +941,15 @@ export default function Resources() {
       {/* Edit Resource Modal */}
       {isEditModalOpen && editingResource && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-2xl rounded-2xl border border-border bg-card shadow-2xl">
-            <div className="flex items-center justify-between border-b border-border px-6 py-4">
+          <div className="w-full max-w-2xl max-h-[92vh] rounded-2xl border border-border bg-card shadow-2xl flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between border-b border-border px-4 sm:px-6 py-4">
               <h3 className="text-lg font-semibold text-foreground">Edit Resource</h3>
               <button type="button" onClick={() => setIsEditModalOpen(false)} className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground">
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            <form onSubmit={handleUpdateResource} className="space-y-4 px-6 py-5">
+            <form onSubmit={handleUpdateResource} className="space-y-4 px-4 sm:px-6 py-5 overflow-y-auto">
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div>
                   <label className="mb-1 block text-xs font-medium text-muted-foreground">Resource Name</label>
@@ -930,8 +997,8 @@ export default function Resources() {
 
               {createResourceError && <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{createResourceError}</div>}
 
-              <div className="flex items-center justify-end gap-2 border-t border-border pt-4">
-                <button type="button" onClick={() => setIsEditModalOpen(false)} className="rounded-xl border border-border px-4 py-2.5 text-sm text-foreground hover:bg-muted">Cancel</button>
+              <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 border-t border-border pt-4">
+                <button type="button" onClick={() => setIsEditModalOpen(false)} className="w-full sm:w-auto rounded-xl border border-border px-4 py-2.5 text-sm text-foreground hover:bg-muted">Cancel</button>
                 <button type="submit" disabled={isUpdatingResource} className="rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60">
                   {isUpdatingResource ? 'Saving...' : 'Save Changes'}
                 </button>
@@ -950,7 +1017,7 @@ export default function Resources() {
 
       {/* Resources Grid */}
       {!isLoading && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 auto-rows-fr gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 auto-rows-fr gap-5">
           {displayResources.map((resource, index) => (
             <ResourceCard
               key={resource.id}

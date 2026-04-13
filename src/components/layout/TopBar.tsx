@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Bell, Search, ChevronDown, Moon, Sun, LogOut, User, Settings, Clock, Menu } from "lucide-react";
+import { Bell, Search, ChevronDown, LogOut, User, Settings, Clock, Menu } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface TopBarProps {
@@ -23,7 +23,6 @@ export function TopBar({ title, subtitle, onMenuClick }: TopBarProps) {
   const navigate = useNavigate();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const [isDark, setIsDark] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
   const [user, setUser] = useState<{name: string; email: string; role: string; avatar: string | null} | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -32,16 +31,9 @@ export function TopBar({ title, subtitle, onMenuClick }: TopBarProps) {
   useEffect(() => {
     fetchUserData();
     fetchUnreadCount();
-    syncTheme();
     const interval = setInterval(fetchUnreadCount, 30000); // Refresh every 30 seconds
     return () => clearInterval(interval);
   }, []);
-
-  const syncTheme = () => {
-    // Sync theme state with current document class
-    const hasDarkClass = document.documentElement.classList.contains('dark');
-    setIsDark(hasDarkClass);
-  };
 
   const fetchUnreadCount = async () => {
     try {
@@ -99,45 +91,6 @@ export function TopBar({ title, subtitle, onMenuClick }: TopBarProps) {
     }
   };
 
-  const toggleTheme = async () => {
-    const newTheme = isDark ? 'light' : 'dark';
-    setIsDark(!isDark);
-    document.documentElement.classList.toggle("dark");
-    
-    // Save theme to database
-    try {
-      const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
-      if (storedUser.id) {
-        // Fetch current preferences first
-        const getResponse = await fetch(`http://localhost:8000/backend/settings.php?userId=${storedUser.id}`, {
-          headers: {
-            'Authorization': localStorage.getItem('token') || '',
-          },
-        });
-        const getData = await getResponse.json();
-        
-        if (getData.success) {
-          const updatedPreferences = { ...getData.preferences, theme: newTheme };
-          
-          // Save updated preferences
-          await fetch('http://localhost:8000/backend/settings.php', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': localStorage.getItem('token') || '',
-            },
-            body: JSON.stringify({
-              action: 'updatePreferences',
-              id: storedUser.id,
-              preferences: updatedPreferences,
-            }),
-          });
-        }
-      }
-    } catch (error) {
-      console.error('Failed to save theme:', error);
-    }
-  };
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -162,7 +115,7 @@ export function TopBar({ title, subtitle, onMenuClick }: TopBarProps) {
           <button
             type="button"
             onClick={onMenuClick}
-            className="md:hidden w-10 h-10 rounded-xl bg-secondary/50 border border-border/50 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-all duration-200"
+            className="md:hidden w-10 h-10 rounded-xl bg-transparent border-0 flex items-center justify-center text-muted-foreground hover:text-foreground transition-all duration-200"
             aria-label="Open menu"
           >
             <Menu className="w-5 h-5" />
@@ -194,8 +147,8 @@ export function TopBar({ title, subtitle, onMenuClick }: TopBarProps) {
       <div className="flex items-center gap-2 sm:gap-3 shrink-0">
         {/* Search */}
         <motion.div
-          animate={{ width: searchFocused ? 280 : 200 }}
-          className="relative hidden md:block"
+          animate={{ width: searchFocused ? 260 : 190 }}
+          className="relative hidden lg:block"
         >
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <input
@@ -206,36 +159,6 @@ export function TopBar({ title, subtitle, onMenuClick }: TopBarProps) {
             className="w-full pl-10 pr-4 py-2 bg-secondary/50 border border-border/50 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all duration-200"
           />
         </motion.div>
-
-        {/* Theme Toggle */}
-        <button
-          onClick={toggleTheme}
-          className="w-10 h-10 rounded-xl bg-secondary/50 border border-border/50 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-all duration-200"
-        >
-          <AnimatePresence mode="wait">
-            {isDark ? (
-              <motion.div
-                key="sun"
-                initial={{ rotate: -90, opacity: 0 }}
-                animate={{ rotate: 0, opacity: 1 }}
-                exit={{ rotate: 90, opacity: 0 }}
-                transition={{ duration: 0.2 }}
-              >
-                <Sun className="w-4 h-4" />
-              </motion.div>
-            ) : (
-              <motion.div
-                key="moon"
-                initial={{ rotate: 90, opacity: 0 }}
-                animate={{ rotate: 0, opacity: 1 }}
-                exit={{ rotate: -90, opacity: 0 }}
-                transition={{ duration: 0.2 }}
-              >
-                <Moon className="w-4 h-4" />
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </button>
 
         {/* Notifications */}
         <div className="relative">

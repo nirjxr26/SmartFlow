@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Calendar, FileText, Check, X, Pencil } from "lucide-react";
+import { Calendar, FileText, Check, X, Pencil, Clock3, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export type ApprovalStatus = "pending" | "approved" | "rejected";
@@ -20,12 +20,14 @@ interface ApprovalCardProps {
   onEdit?: () => void;
   onApprove?: () => void;
   onReject?: () => void;
+  onPending?: () => void;
+  onDelete?: () => void;
 }
 
 const statusConfig = {
-  pending: { label: "Pending Review", class: "badge-pending" },
-  approved: { label: "Approved", class: "badge-completed" },
-  rejected: { label: "Rejected", class: "badge-error" },
+  pending: { label: "Pending Review", class: "badge-pending", borderClass: "border-l-warning/40" },
+  approved: { label: "Approved", class: "badge-completed", borderClass: "border-l-success/40" },
+  rejected: { label: "Rejected", class: "badge-error", borderClass: "border-l-destructive/40" },
 };
 
 export function ApprovalCard({
@@ -39,6 +41,8 @@ export function ApprovalCard({
   onEdit,
   onApprove,
   onReject,
+  onPending,
+  onDelete,
 }: ApprovalCardProps) {
   const statusStyle = statusConfig[status];
 
@@ -48,8 +52,8 @@ export function ApprovalCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay }}
       className={cn(
-        "card-elevated p-5 relative overflow-hidden",
-        status === "pending" && "border-l-4 border-l-warning"
+        "card-elevated p-5 relative overflow-hidden border-l-[3px]",
+        statusStyle.borderClass
       )}
     >
       {/* Type Badge */}
@@ -84,7 +88,7 @@ export function ApprovalCard({
       )}
 
       {/* Requester */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center gap-3">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-accent/80 to-accent flex items-center justify-center">
             <span className="text-accent-foreground text-xs font-semibold">
@@ -105,37 +109,52 @@ export function ApprovalCard({
             )}
           </div>
         </div>
-
-        {/* Actions */}
-        {(onApprove || onReject || (status === "pending" && canModify && onEdit)) && (
-          <div className="flex items-center gap-2">
-            {status === "pending" && canModify && onEdit && (
-              <button
-                onClick={onEdit}
-                className="w-9 h-9 rounded-xl border border-border bg-background flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/50 hover:bg-primary/5 transition-all"
-              >
-                <Pencil className="w-4 h-4" />
-              </button>
-            )}
-            {onReject && (
-              <button
-                onClick={onReject}
-                className="w-9 h-9 rounded-xl border border-border bg-background flex items-center justify-center text-muted-foreground hover:text-destructive hover:border-destructive/50 hover:bg-destructive/5 transition-all"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
-            {onApprove && (
-              <button
-                onClick={onApprove}
-                className="w-9 h-9 rounded-xl bg-success flex items-center justify-center text-success-foreground hover:bg-success/90 transition-all"
-              >
-                <Check className="w-4 h-4" />
-              </button>
-            )}
-          </div>
-        )}
       </div>
+
+      {(onApprove || onReject || onPending || onDelete || (status === "pending" && canModify && onEdit)) && (
+        <div className="mt-4 pt-4 border-t border-border flex items-center justify-end gap-2">
+          {status === "pending" && canModify && onEdit && (
+            <button
+              onClick={onEdit}
+              className="w-8 h-8 rounded-lg border border-border bg-background flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/50 hover:bg-primary/5 transition-all"
+            >
+              <Pencil className="w-3.5 h-3.5" />
+            </button>
+          )}
+          {onReject && (
+            <button
+              onClick={onReject}
+              className="w-8 h-8 rounded-lg border border-border bg-background flex items-center justify-center text-muted-foreground hover:text-destructive hover:border-destructive/50 hover:bg-destructive/5 transition-all"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+          {onApprove && (
+            <button
+              onClick={onApprove}
+              className="w-8 h-8 rounded-lg bg-success flex items-center justify-center text-success-foreground hover:bg-success/90 transition-all"
+            >
+              <Check className="w-3.5 h-3.5" />
+            </button>
+          )}
+          {onPending && (
+            <button
+              onClick={onPending}
+              className="w-8 h-8 rounded-lg border border-border bg-background flex items-center justify-center text-muted-foreground hover:text-warning hover:border-warning/40 hover:bg-warning/5 transition-all"
+            >
+              <Clock3 className="w-3.5 h-3.5" />
+            </button>
+          )}
+          {onDelete && (
+            <button
+              onClick={onDelete}
+              className="w-8 h-8 rounded-lg border border-destructive/30 flex items-center justify-center text-destructive hover:bg-destructive/10 transition-all"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+      )}
     </motion.div>
   );
 }

@@ -147,9 +147,30 @@
     font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
   }
 
+  @media (max-width: 640px) {
+    html {
+      font-size: 15px;
+    }
+  }
+
   body {
     @apply bg-background text-foreground antialiased;
     overflow-x: hidden;
+  }
+
+  select {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    padding-right: 2.75rem;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='M4 6L8 10L12 6' stroke='%2364748B' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-size: 1rem 1rem;
+    background-position: right 0.85rem center;
+  }
+
+  select::-ms-expand {
+    display: none;
   }
 
   #root {
@@ -201,23 +222,23 @@
 
   /* Status badges */
   .badge-pending {
-    @apply bg-warning/15 text-warning border border-warning/30 font-medium;
+    @apply bg-warning/15 text-warning font-medium;
   }
 
   .badge-progress {
-    @apply bg-info/15 text-info border border-info/30 font-medium;
+    @apply bg-info/15 text-info font-medium;
   }
 
   .badge-review {
-    @apply bg-accent/15 text-accent border border-accent/30 font-medium;
+    @apply bg-accent/15 text-accent font-medium;
   }
 
   .badge-completed {
-    @apply bg-success/15 text-success border border-success/30 font-medium;
+    @apply bg-success/15 text-success font-medium;
   }
 
   .badge-error {
-    @apply bg-destructive/15 text-destructive border border-destructive/30 font-medium;
+    @apply bg-destructive/15 text-destructive font-medium;
   }
 
   /* Priority badges */

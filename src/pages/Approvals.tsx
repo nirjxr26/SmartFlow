@@ -21,10 +21,12 @@ interface Approval {
   canModify?: boolean;
 }
 
+type ApprovalTab = ApprovalStatus | "all";
+
 export default function Approvals() {
   const [currentUser, setCurrentUser] = useState<{ id: number; role?: string; department?: string }>({ id: 0 });
   const [isAdmin, setIsAdmin] = useState(false);
-  const [activeTab, setActiveTab] = useState<ApprovalStatus>("pending");
+  const [activeTab, setActiveTab] = useState<ApprovalTab>("pending");
   const [approvals, setApprovals] = useState<Approval[]>([]);
   const [counts, setCounts] = useState({ pending: 0, approved: 0, rejected: 0 });
   const [isLoading, setIsLoading] = useState(true);
@@ -39,6 +41,7 @@ export default function Approvals() {
   const [createdDateFilter, setCreatedDateFilter] = useState("");
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
   const [draftTypeFilter, setDraftTypeFilter] = useState("");
+  const [draftStatusFilter, setDraftStatusFilter] = useState<ApprovalTab>("pending");
   const [draftDepartmentFilter, setDraftDepartmentFilter] = useState("");
   const [draftCreatedDateFilter, setDraftCreatedDateFilter] = useState("");
   const [createForm, setCreateForm] = useState({
@@ -76,9 +79,11 @@ export default function Approvals() {
     setIsLoading(true);
     try {
       const params = new URLSearchParams({
-        status: activeTab,
         user_id: String(currentUser.id),
       });
+      if (activeTab !== "all") {
+        params.append("status", activeTab);
+      }
 
       const response = await fetch(`http://localhost:8000/backend/approvals.php?${params.toString()}`, {
         headers: {
@@ -278,6 +283,116 @@ export default function Approvals() {
     }
   };
 
+  const handleSetPending = async (id: number) => {
+    if (!isAdmin) return;
+
+    const result = await Swal.fire({
+      title: 'Move Back to Pending?',
+      text: 'This approval will be moved back to pending review.',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonColor: '#3b82f6',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: 'Yes, move to pending',
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      const response = await fetch('http://localhost:8000/backend/approvals.php', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': localStorage.getItem('token') || '',
+        },
+        body: JSON.stringify({ id, action: 'pending', user_id: currentUser.id }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        await Swal.fire({
+          title: 'Moved',
+          text: 'Approval moved back to pending.',
+          icon: 'success',
+          confirmButtonColor: '#3b82f6',
+          timer: 1500,
+        });
+        fetchApprovals();
+      } else {
+        Swal.fire({
+          title: 'Error',
+          text: data.message || 'Failed to move approval to pending',
+          icon: 'error',
+          confirmButtonColor: '#3b82f6',
+        });
+      }
+    } catch (error) {
+      console.error('Failed to move approval to pending:', error);
+      Swal.fire({
+        title: 'Error',
+        text: 'Failed to move approval to pending',
+        icon: 'error',
+        confirmButtonColor: '#3b82f6',
+      });
+    }
+  };
+
+  const handleDeleteApproval = async (id: number) => {
+    if (!isAdmin) return;
+
+    const result = await Swal.fire({
+      title: 'Delete Approval?',
+      text: 'This action cannot be undone.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: 'Delete',
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      const response = await fetch('http://localhost:8000/backend/approvals.php', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': localStorage.getItem('token') || '',
+        },
+        body: JSON.stringify({ id, user_id: currentUser.id }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        await Swal.fire({
+          title: 'Deleted',
+          text: 'Approval deleted successfully.',
+          icon: 'success',
+          confirmButtonColor: '#3b82f6',
+          timer: 1500,
+        });
+        fetchApprovals();
+      } else {
+        Swal.fire({
+          title: 'Error',
+          text: data.message || 'Failed to delete approval',
+          icon: 'error',
+          confirmButtonColor: '#3b82f6',
+        });
+      }
+    } catch (error) {
+      console.error('Failed to delete approval:', error);
+      Swal.fire({
+        title: 'Error',
+        text: 'Failed to delete approval',
+        icon: 'error',
+        confirmButtonColor: '#3b82f6',
+      });
+    }
+  };
+
   const openEditModal = (approval: Approval) => {
     setEditingApprovalId(approval.id);
     setEditForm({
@@ -355,6 +470,7 @@ export default function Approvals() {
   };
 
   const tabs = [
+    { key: "all", label: "All", count: counts.pending + counts.approved + counts.rejected },
     { key: "pending", label: "Pending", count: counts.pending },
     { key: "approved", label: "Approved", count: counts.approved },
     { key: "rejected", label: "Rejected", count: counts.rejected },
@@ -397,6 +513,7 @@ export default function Approvals() {
   };
 
   const handleOpenFilterPanel = () => {
+    setDraftStatusFilter(activeTab);
     setDraftTypeFilter(typeFilter);
     setDraftDepartmentFilter(departmentFilter);
     setDraftCreatedDateFilter(createdDateFilter);
@@ -404,6 +521,7 @@ export default function Approvals() {
   };
 
   const handleApplyFilters = () => {
+    setActiveTab(draftStatusFilter);
     setTypeFilter(draftTypeFilter);
     setDepartmentFilter(draftDepartmentFilter);
     setCreatedDateFilter(draftCreatedDateFilter);
@@ -411,9 +529,11 @@ export default function Approvals() {
   };
 
   const handleResetFilters = () => {
+    setDraftStatusFilter("pending");
     setDraftTypeFilter("");
     setDraftDepartmentFilter("");
     setDraftCreatedDateFilter("");
+    setActiveTab("pending");
     setTypeFilter("");
     setDepartmentFilter("");
     setCreatedDateFilter("");
@@ -425,8 +545,8 @@ export default function Approvals() {
       {/* Create Request Modal */}
       {isCreateModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-2xl rounded-2xl border border-border bg-card shadow-2xl">
-            <div className="flex items-center justify-between border-b border-border px-6 py-4">
+          <div className="w-full max-w-2xl max-h-[92vh] rounded-2xl border border-border bg-card shadow-2xl flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between border-b border-border px-4 sm:px-6 py-4">
               <h3 className="text-lg font-semibold text-foreground">Create Approval Request</h3>
               <button
                 type="button"
@@ -437,7 +557,7 @@ export default function Approvals() {
               </button>
             </div>
 
-            <form onSubmit={handleCreateApproval} className="space-y-4 px-6 py-5">
+            <form onSubmit={handleCreateApproval} className="space-y-4 px-4 sm:px-6 py-5 overflow-y-auto">
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div>
                   <label className="mb-1 block text-xs font-medium text-muted-foreground">Type</label>
@@ -508,11 +628,11 @@ export default function Approvals() {
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 border-t border-border pt-4">
+              <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 border-t border-border pt-4">
                 <button
                   type="button"
                   onClick={() => setIsCreateModalOpen(false)}
-                  className="rounded-xl border border-border px-4 py-2.5 text-sm text-foreground hover:bg-muted"
+                  className="w-full sm:w-auto rounded-xl border border-border px-4 py-2.5 text-sm text-foreground hover:bg-muted"
                 >
                   Cancel
                 </button>
@@ -532,8 +652,8 @@ export default function Approvals() {
       {/* Edit Request Modal */}
       {isEditModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-2xl rounded-2xl border border-border bg-card shadow-2xl">
-            <div className="flex items-center justify-between border-b border-border px-6 py-4">
+          <div className="w-full max-w-2xl max-h-[92vh] rounded-2xl border border-border bg-card shadow-2xl flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between border-b border-border px-4 sm:px-6 py-4">
               <h3 className="text-lg font-semibold text-foreground">Modify Approval Request</h3>
               <button
                 type="button"
@@ -544,7 +664,7 @@ export default function Approvals() {
               </button>
             </div>
 
-            <form onSubmit={handleEditApproval} className="space-y-4 px-6 py-5">
+            <form onSubmit={handleEditApproval} className="space-y-4 px-4 sm:px-6 py-5 overflow-y-auto">
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div>
                   <label className="mb-1 block text-xs font-medium text-muted-foreground">Type</label>
@@ -585,11 +705,11 @@ export default function Approvals() {
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 border-t border-border pt-4">
+              <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 border-t border-border pt-4">
                 <button
                   type="button"
                   onClick={() => setIsEditModalOpen(false)}
-                  className="rounded-xl border border-border px-4 py-2.5 text-sm text-foreground hover:bg-muted"
+                  className="w-full sm:w-auto rounded-xl border border-border px-4 py-2.5 text-sm text-foreground hover:bg-muted"
                 >
                   Cancel
                 </button>
@@ -608,8 +728,8 @@ export default function Approvals() {
 
       {/* Search + Actions */}
       <div className="mb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="relative min-w-0 flex items-center gap-2">
-          <div className="relative max-w-sm">
+        <div className="relative min-w-0 flex flex-1 w-full sm:w-auto items-center gap-2 flex-nowrap sm:flex-wrap">
+          <div className="relative min-w-0 flex-1 w-full sm:w-auto sm:max-w-xs">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input
               type="text"
@@ -642,11 +762,11 @@ export default function Approvals() {
             <SlidersHorizontal className="w-4 h-4" />
           </button>
 
-          <div className="flex items-center gap-2 overflow-x-auto pb-1">
+          <div className="hidden sm:flex basis-full order-3 items-center gap-2 overflow-x-auto pb-1">
             {tabs.map((tab) => (
               <button
                 key={tab.key}
-                onClick={() => setActiveTab(tab.key as ApprovalStatus)}
+                onClick={() => setActiveTab(tab.key as ApprovalTab)}
                 className={cn(
                   "px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all flex items-center gap-2",
                   activeTab === tab.key
@@ -689,6 +809,23 @@ export default function Approvals() {
                   className="absolute right-0 top-full mt-2 z-40 w-[min(100%,24rem)] rounded-2xl border border-border/70 bg-card shadow-xl"
                 >
                   <div className="p-4 sm:p-5 space-y-5">
+                    <div>
+                      <h3 className="text-sm font-semibold text-foreground">Status</h3>
+                      <select
+                        value={draftStatusFilter}
+                        onChange={(e) => setDraftStatusFilter(e.target.value as ApprovalTab)}
+                        className="mt-3 w-full rounded-xl border border-border/70 bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/40"
+                      >
+                        {tabs.map((tab) => (
+                          <option key={tab.key} value={tab.key}>
+                            {tab.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="h-px bg-border/60" />
+
                     <div>
                       <h3 className="text-sm font-semibold text-foreground">Type</h3>
                       <select
@@ -756,17 +893,21 @@ export default function Approvals() {
               </>
             )}
           </AnimatePresence>
-        </div>
 
-        <button
-          type="button"
-          onClick={() => setIsCreateModalOpen(true)}
-          disabled={!currentUser.id}
-          className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-primary to-primary/80 px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-md hover:brightness-110 transition disabled:opacity-60"
-        >
-          <Plus className="h-4 w-4" />
-          Create Approval
-        </button>
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            type="button"
+            onClick={() => setIsCreateModalOpen(true)}
+            disabled={!currentUser.id}
+            className="btn-primary-gradient h-10 w-10 sm:w-auto sm:px-4 shrink-0 sm:ml-auto sm:order-2 flex items-center justify-center gap-2 text-white"
+            aria-label="Create approval"
+            title="Create approval"
+          >
+            <Plus className="w-4 h-4" />
+            <span className="hidden sm:inline text-sm font-medium">Create Approval</span>
+          </motion.button>
+        </div>
       </div>
 
       {/* Loading */}
@@ -788,6 +929,8 @@ export default function Approvals() {
               onEdit={approval.canModify ? () => openEditModal(approval) : undefined}
               onApprove={isAdmin && (approval.status === 'pending' || approval.status === 'rejected') ? () => handleApprove(approval.id) : undefined}
               onReject={isAdmin && (approval.status === 'pending' || approval.status === 'approved') ? () => handleReject(approval.id) : undefined}
+              onPending={isAdmin && (approval.status === 'approved' || approval.status === 'rejected') ? () => handleSetPending(approval.id) : undefined}
+              onDelete={isAdmin && (approval.status === 'approved' || approval.status === 'rejected') ? () => handleDeleteApproval(approval.id) : undefined}
             />
           ))}
         </div>
@@ -804,7 +947,7 @@ export default function Approvals() {
             <span className="text-3xl">📋</span>
           </div>
           <h3 className="text-lg font-semibold text-foreground mb-2">
-            No {activeTab} requests
+            {activeTab === "all" ? "No approval requests" : `No ${activeTab} requests`}
           </h3>
           <p className="text-muted-foreground max-w-sm">
             {activeTab === "pending"

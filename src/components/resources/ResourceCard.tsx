@@ -41,11 +41,11 @@ const typeConfig = {
 };
 
 const statusConfig = {
-  available: { label: "Available", class: "badge-completed", icon: CheckCircle2 },
-  assigned: { label: "Assigned", class: "badge-progress", icon: UserCheck },
-  maintenance: { label: "Maintenance", class: "badge-pending", icon: Wrench },
-  requested: { label: "Requested", class: "bg-warning/15 text-warning", icon: Clock3 },
-  rejected: { label: "Rejected", class: "bg-destructive/10 text-destructive", icon: AlertCircle },
+  available: { label: "Available", class: "badge-completed", icon: CheckCircle2, borderClass: "border-l-success/40" },
+  assigned: { label: "Assigned", class: "badge-progress", icon: UserCheck, borderClass: "border-l-info/40" },
+  maintenance: { label: "Maintenance", class: "badge-pending", icon: Wrench, borderClass: "border-l-warning/40" },
+  requested: { label: "Requested", class: "bg-warning/15 text-warning", icon: Clock3, borderClass: "border-l-warning/40" },
+  rejected: { label: "Rejected", class: "bg-destructive/10 text-destructive", icon: AlertCircle, borderClass: "border-l-destructive/40" },
 };
 
 export function ResourceCard({
@@ -80,7 +80,10 @@ export function ResourceCard({
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.3, delay }}
-      className="card-interactive p-5 group h-full min-h-[220px] flex flex-col"
+      className={cn(
+        "card-interactive p-5 group h-full min-h-[220px] flex flex-col border-l-[3px]",
+        statusStyle.borderClass
+      )}
     >
       {/* Header */}
       <div className="flex items-start justify-between mb-4">
@@ -134,7 +137,7 @@ export function ResourceCard({
       </div>
 
       {isAdmin ? (
-        <div className="mt-4 pt-4 border-t border-border flex items-center gap-2 flex-wrap">
+        <div className="mt-4 pt-4 border-t border-border flex items-center justify-end gap-2 flex-wrap">
           <button
             type="button"
             onClick={onModify}
@@ -142,7 +145,7 @@ export function ResourceCard({
             aria-label="Modify"
             className="h-8 w-8 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted"
           >
-            <Pencil className="w-4 h-4" />
+            <Pencil className="w-3.5 h-3.5" />
           </button>
           {status === "available" && onAssign && (
             <button
@@ -152,7 +155,7 @@ export function ResourceCard({
               aria-label="Assign"
               className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground"
             >
-              <UserPlus className="w-4 h-4" />
+              <UserPlus className="w-3.5 h-3.5" />
             </button>
           )}
           {(status === "available" || status === "assigned" || status === "requested" || status === "rejected") && onMaintenance && (
@@ -163,7 +166,7 @@ export function ResourceCard({
               aria-label="Maintenance"
               className="h-8 w-8 rounded-lg border border-border flex items-center justify-center text-foreground hover:bg-muted"
             >
-              <Wrench className="w-4 h-4" />
+              <Wrench className="w-3.5 h-3.5" />
             </button>
           )}
           {status === "assigned" && onReject && (
@@ -174,7 +177,7 @@ export function ResourceCard({
               aria-label="Reject"
               className="h-8 w-8 rounded-lg border border-destructive/30 flex items-center justify-center text-destructive hover:bg-destructive/10"
             >
-              <X className="w-4 h-4" />
+              <X className="w-3.5 h-3.5" />
             </button>
           )}
           {status === "maintenance" && onMarkAvailable && (
@@ -185,7 +188,7 @@ export function ResourceCard({
               aria-label="Available"
               className="h-8 w-8 rounded-lg border border-border flex items-center justify-center text-foreground hover:bg-muted"
             >
-              <Undo2 className="w-4 h-4" />
+              <Undo2 className="w-3.5 h-3.5" />
             </button>
           )}
           {status === "requested" && onApprove && (
@@ -196,7 +199,7 @@ export function ResourceCard({
               aria-label={`Approve ${requestedBy?.name || 'request'}`}
               className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground"
             >
-              <Check className="w-4 h-4" />
+              <Check className="w-3.5 h-3.5" />
             </button>
           )}
           {status === "requested" && onReject && (
@@ -207,7 +210,7 @@ export function ResourceCard({
               aria-label="Reject"
               className="h-8 w-8 rounded-lg border border-destructive/30 flex items-center justify-center text-destructive hover:bg-destructive/10"
             >
-              <X className="w-4 h-4" />
+              <X className="w-3.5 h-3.5" />
             </button>
           )}
           {status === "rejected" && onApprove && (
@@ -218,7 +221,7 @@ export function ResourceCard({
               aria-label={`Approve ${requestedBy?.name || 'request'}`}
               className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground"
             >
-              <Check className="w-4 h-4" />
+              <Check className="w-3.5 h-3.5" />
             </button>
           )}
           {status === "rejected" && onMarkAvailable && (
@@ -229,12 +232,12 @@ export function ResourceCard({
               aria-label="Available"
               className="h-8 w-8 rounded-lg border border-border flex items-center justify-center text-foreground hover:bg-muted"
             >
-              <Undo2 className="w-4 h-4" />
+              <Undo2 className="w-3.5 h-3.5" />
             </button>
           )}
         </div>
       ) : status === "available" && onRequest ? (
-        <div className="mt-4 pt-4 border-t border-border">
+        <div className="mt-4 pt-4 border-t border-border flex items-center justify-end">
           <button
             type="button"
             onClick={onRequest}
@@ -242,7 +245,7 @@ export function ResourceCard({
             aria-label="Request"
             className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground"
           >
-            <Send className="w-4 h-4" />
+            <Send className="w-3.5 h-3.5" />
           </button>
         </div>
       ) : null}

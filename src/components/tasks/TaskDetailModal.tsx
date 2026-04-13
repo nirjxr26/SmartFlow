@@ -411,7 +411,7 @@ export function TaskDetailModal({ isOpen, onClose, task, onUpdate, onDelete, onD
             className="fixed right-0 top-0 h-screen w-full max-w-2xl bg-card border-l border-border z-50 overflow-y-auto"
           >
             {/* Header */}
-            <div className="sticky top-0 bg-card/95 backdrop-blur-sm border-b border-border px-6 py-4 flex items-center justify-between z-10">
+            <div className="sticky top-0 bg-card/95 backdrop-blur-sm border-b border-border px-4 sm:px-6 py-4 flex items-center justify-between z-10">
               <div className="flex items-center gap-3">
                 <span className="text-xs font-medium text-muted-foreground">
                   TASK-{task.id}
@@ -435,10 +435,10 @@ export function TaskDetailModal({ isOpen, onClose, task, onUpdate, onDelete, onD
               </div>
             </div>
 
-            <div className="p-6 space-y-8">
+            <div className="p-4 sm:p-6 space-y-6 sm:space-y-8">
               {/* Title and Description */}
               <div>
-                <h2 className="text-2xl font-bold text-foreground mb-3">
+                <h2 className="text-xl sm:text-2xl font-bold text-foreground mb-3">
                   {task.title}
                 </h2>
                 <p className="text-muted-foreground leading-relaxed">
@@ -449,7 +449,7 @@ export function TaskDetailModal({ isOpen, onClose, task, onUpdate, onDelete, onD
               {/* Progress Indicator */}
               <div className="space-y-3">
                 <h3 className="text-sm font-semibold text-foreground">Progress</h3>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 overflow-x-auto pb-1">
                   {statusSteps.map((step, index) => (
                     <div key={step.key} className="flex items-center flex-1">
                       <div className="flex flex-col items-center flex-1">
@@ -495,7 +495,7 @@ export function TaskDetailModal({ isOpen, onClose, task, onUpdate, onDelete, onD
               </div>
 
               {/* Details Grid */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="card-subtle p-4">
                   <div className="flex items-center gap-2 text-muted-foreground mb-2">
                     <User className="w-4 h-4" />
@@ -593,7 +593,7 @@ export function TaskDetailModal({ isOpen, onClose, task, onUpdate, onDelete, onD
                 )}
 
                 {attachments.length > 0 ? (
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {attachments.map((file) => {
                       const FileIcon = fileIcons[file.type];
                       const isRenaming = renamingAttachmentId === file.id;

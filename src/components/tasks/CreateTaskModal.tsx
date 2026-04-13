@@ -167,17 +167,17 @@ export function CreateTaskModal({ isOpen, onClose, onTaskCreated, task }: Create
           />
 
           {/* Modal */}
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               transition={{ type: "spring", damping: 30, stiffness: 300 }}
-              className="w-full max-w-2xl h-auto max-h-[90vh] rounded-2xl bg-card border border-border shadow-2xl flex flex-col"
+              className="w-[calc(100vw-2.75rem)] sm:w-full max-w-xl h-auto max-h-[90vh] rounded-2xl bg-card border border-border shadow-2xl flex flex-col"
             >
             {/* Header */}
-            <div className="sticky top-0 bg-card/95 backdrop-blur-sm border-b border-border px-6 py-4 flex items-center justify-between z-10 rounded-t-2xl">
-              <h2 className="text-xl font-semibold text-foreground">{isEditMode ? "Edit Task" : "Create New Task"}</h2>
+            <div className="sticky top-0 bg-card/95 backdrop-blur-sm border-b border-border px-4 sm:px-5 py-3.5 flex items-center justify-between z-10 rounded-t-2xl">
+              <h2 className="text-base sm:text-lg font-semibold text-foreground">{isEditMode ? "Edit Task" : "Create New Task"}</h2>
               <button
                 onClick={onClose}
                 className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
@@ -187,10 +187,10 @@ export function CreateTaskModal({ isOpen, onClose, onTaskCreated, task }: Create
             </div>
 
             {/* Form */}
-            <form onSubmit={handleSubmit} className="p-6 space-y-6 flex-1 overflow-y-auto">
+            <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-4 sm:space-y-5 flex-1 overflow-y-auto">
               {/* Title */}
               <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">
+                <label className="text-xs font-medium text-foreground">
                   Task Title <span className="text-destructive">*</span>
                 </label>
                 <input
@@ -198,30 +198,30 @@ export function CreateTaskModal({ isOpen, onClose, onTaskCreated, task }: Create
                   value={formData.title}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                   placeholder="Enter task title"
-                  className="w-full px-4 py-3 bg-muted/50 border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all"
+                  className="w-full px-3.5 py-2.5 bg-muted/50 border border-border rounded-xl text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all"
                   required
                 />
               </div>
 
               {/* Description */}
               <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Description</label>
+                <label className="text-xs font-medium text-foreground">Description</label>
                 <textarea
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   placeholder="Enter task description"
                   rows={4}
-                  className="w-full px-4 py-3 bg-muted/50 border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all resize-none"
+                  className="w-full px-3.5 py-2.5 bg-muted/50 border border-border rounded-xl text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all resize-none"
                 />
               </div>
 
               {/* Assigned To */}
               <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Assigned To</label>
+                <label className="text-xs font-medium text-foreground">Assigned To</label>
                 <select
                   value={formData.assignee_id}
                   onChange={(e) => setFormData({ ...formData, assignee_id: parseInt(e.target.value) })}
-                  className="w-full px-4 py-3 bg-muted/50 border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all"
+                  className="w-full px-3.5 py-2.5 bg-muted/50 border border-border rounded-xl text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all"
                 >
                   <option value="0">Select assignee</option>
                   {users.map((user) => (
@@ -233,13 +233,13 @@ export function CreateTaskModal({ isOpen, onClose, onTaskCreated, task }: Create
               </div>
 
               {/* Status and Priority */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">Status</label>
+                  <label className="text-xs font-medium text-foreground">Status</label>
                   <select
                     value={formData.status}
                     onChange={(e) => setFormData({ ...formData, status: e.target.value as TaskStatus })}
-                    className="w-full px-4 py-3 bg-muted/50 border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all"
+                    className="w-full px-3.5 py-2.5 bg-muted/50 border border-border rounded-xl text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all"
                   >
                     <option value="pending">Pending</option>
                     <option value="in-progress">In Progress</option>
@@ -249,11 +249,11 @@ export function CreateTaskModal({ isOpen, onClose, onTaskCreated, task }: Create
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">Priority</label>
+                  <label className="text-xs font-medium text-foreground">Priority</label>
                   <select
                     value={formData.priority}
                     onChange={(e) => setFormData({ ...formData, priority: e.target.value as TaskPriority })}
-                    className="w-full px-4 py-3 bg-muted/50 border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all"
+                    className="w-full px-3.5 py-2.5 bg-muted/50 border border-border rounded-xl text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all"
                   >
                     <option value="low">Low</option>
                     <option value="medium">Medium</option>
@@ -264,7 +264,7 @@ export function CreateTaskModal({ isOpen, onClose, onTaskCreated, task }: Create
 
               {/* Deadline */}
               <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground flex items-center gap-2">
+                <label className="text-xs font-medium text-foreground flex items-center gap-2">
                   <Calendar className="w-4 h-4" />
                   Deadline
                 </label>
@@ -272,15 +272,15 @@ export function CreateTaskModal({ isOpen, onClose, onTaskCreated, task }: Create
                   type="date"
                   value={formData.deadline}
                   onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
-                  className="w-full px-4 py-3 bg-muted/50 border border-border rounded-xl text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all"
+                  className="w-full px-3.5 py-2.5 bg-muted/50 border border-border rounded-xl text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all"
                 />
               </div>
 
               {/* Info */}
               {!isEditMode && (
-                <div className="flex items-start gap-3 p-4 bg-muted/30 rounded-xl border border-border/50">
+                <div className="flex items-start gap-3 p-3.5 bg-muted/30 rounded-xl border border-border/50">
                   <AlertCircle className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-                  <div className="text-sm text-muted-foreground">
+                  <div className="text-xs text-muted-foreground">
                     <p className="font-medium text-foreground mb-1">Note</p>
                     The task will be assigned to you by default. You can change the assignee later.
                   </div>
@@ -290,13 +290,13 @@ export function CreateTaskModal({ isOpen, onClose, onTaskCreated, task }: Create
             </form>
 
             {/* Actions */}
-            <div className="border-t border-border p-6 bg-card rounded-b-2xl">
-              <div className="flex items-center gap-3">
+            <div className="border-t border-border p-4 sm:p-5 bg-card rounded-b-2xl">
+              <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center gap-3">
                 <button
                   type="submit"
                   onClick={handleSubmit}
                   disabled={isSubmitting}
-                  className="flex-1 px-6 py-3 bg-primary text-primary-foreground rounded-xl font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 px-6 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isSubmitting ? (isEditMode ? "Updating..." : "Creating...") : (isEditMode ? "Update Task" : "Create Task")}
                 </button>
@@ -304,7 +304,7 @@ export function CreateTaskModal({ isOpen, onClose, onTaskCreated, task }: Create
                   type="button"
                   onClick={onClose}
                   disabled={isSubmitting}
-                  className="px-6 py-3 bg-muted text-foreground rounded-xl font-medium hover:bg-muted/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full sm:w-auto px-6 py-2.5 bg-muted text-foreground rounded-xl text-sm font-medium hover:bg-muted/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Cancel
                 </button>

@@ -193,7 +193,7 @@ try {
         $approvalId = isset($data['id']) ? intval($data['id']) : 0;
         $action = $data['action'] ?? '';
 
-        if ($approvalId <= 0 || !in_array($action, ['approve', 'reject', 'modify'], true)) {
+        if ($approvalId <= 0 || !in_array($action, ['approve', 'reject', 'modify', 'pending'], true)) {
             echo json_encode(['success' => false, 'message' => 'Invalid request']);
             exit;
         }
@@ -263,8 +263,8 @@ try {
 
         $allowedReviewActionsByStatus = [
             'pending' => ['approve', 'reject'],
-            'approved' => ['reject'],
-            'rejected' => ['approve'],
+            'approved' => ['reject', 'pending'],
+            'rejected' => ['approve', 'pending'],
         ];
 
         $currentStatus = (string)$approval['status'];
@@ -273,6 +273,47 @@ try {
             echo json_encode([
                 'success' => false,
                 'message' => 'Invalid status transition from ' . $currentStatus,
+            ]);
+            exit;
+        }
+
+        if ($action === 'pending') {
+            $stmt = $pdo->prepare('
+                UPDATE approvals
+                SET status = :status, approved_by = NULL, approved_at = NULL
+                WHERE id = :id
+            ');
+            $stmt->execute([
+                ':status' => 'pending',
+                ':id' => $approvalId,
+            ]);
+
+            $stmt = $pdo->prepare('
+                INSERT INTO activities (user_id, type, description, related_id, related_type)
+                VALUES (:user_id, :type, :description, :related_id, :related_type)
+            ');
+            $stmt->execute([
+                ':user_id' => $requestUserId,
+                ':type' => 'approval_requested',
+                ':description' => 'moved approval request #' . $approvalId . ' back to pending',
+                ':related_id' => $approvalId,
+                ':related_type' => 'approval',
+            ]);
+
+            $stmt = $pdo->prepare('
+                INSERT INTO notifications (user_id, type, title, message)
+                VALUES (:user_id, :type, :title, :message)
+            ');
+            $stmt->execute([
+                ':user_id' => (int)$approval['requested_by'],
+                ':type' => 'info',
+                ':title' => 'Approval Moved To Pending',
+                ':message' => 'Your ' . $approval['type'] . ' request was moved back to pending review',
+            ]);
+
+            echo json_encode([
+                'success' => true,
+                'message' => 'Approval moved to pending successfully',
             ]);
             exit;
         }
@@ -304,6 +345,60 @@ try {
         echo json_encode([
             'success' => true,
             'message' => 'Approval ' . $status . ' successfully',
+        ]);
+        exit;
+    }
+
+    if ($method === 'DELETE') {
+        $approvalId = isset($data['id']) ? intval($data['id']) : 0;
+        if ($approvalId <= 0) {
+            echo json_encode(['success' => false, 'message' => 'Approval ID is required']);
+            exit;
+        }
+
+        if (!$isAdmin) {
+            echo json_encode(['success' => false, 'message' => 'Only admins can delete approvals']);
+            exit;
+        }
+
+        $stmt = $pdo->prepare('SELECT id, type, requested_by FROM approvals WHERE id = :id');
+        $stmt->execute([':id' => $approvalId]);
+        $approval = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$approval) {
+            echo json_encode(['success' => false, 'message' => 'Approval not found']);
+            exit;
+        }
+
+        $stmt = $pdo->prepare('DELETE FROM approvals WHERE id = :id');
+        $stmt->execute([':id' => $approvalId]);
+
+        $stmt = $pdo->prepare('
+            INSERT INTO activities (user_id, type, description, related_id, related_type)
+            VALUES (:user_id, :type, :description, :related_id, :related_type)
+        ');
+        $stmt->execute([
+            ':user_id' => $requestUserId,
+            ':type' => 'approval_requested',
+            ':description' => 'deleted approval request #' . $approvalId,
+            ':related_id' => $approvalId,
+            ':related_type' => 'approval',
+        ]);
+
+        $stmt = $pdo->prepare('
+            INSERT INTO notifications (user_id, type, title, message)
+            VALUES (:user_id, :type, :title, :message)
+        ');
+        $stmt->execute([
+            ':user_id' => (int)$approval['requested_by'],
+            ':type' => 'warning',
+            ':title' => 'Approval Deleted',
+            ':message' => 'Your ' . $approval['type'] . ' request was deleted by an administrator',
+        ]);
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'Approval deleted successfully',
         ]);
         exit;
     }

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Download, Calendar, TrendingUp, Users, CheckCircle2, Box, RotateCcw, AlertCircle, Filter, Clock, Zap } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -293,139 +293,162 @@ export default function Reports() {
   return (
     <AppLayout title="Reports & Analytics" subtitle="Comprehensive insights into your workflow and resources.">
       {/* Header Actions */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-          <div className="flex items-center gap-2 px-4 py-2 bg-card border border-border rounded-xl text-sm w-fit">
-            <Calendar className="w-4 h-4 text-muted-foreground" />
-            <span className="text-muted-foreground">{data.period?.label || `${startDate} - ${endDate}`}</span>
-          </div>
-          <div className="relative">
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={handleOpenFilterPanel}
-              className="p-2.5 rounded-xl border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
-              aria-label="Open date filters"
-            >
-              <Filter className="w-4 h-4" />
-            </motion.button>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        {/* Date Picker and Filters */}
+        <div className="relative flex items-center gap-2">
+          {/* Calendar Icon Button */}
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={handleOpenFilterPanel}
+            className="p-2.5 rounded-xl border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted transition-all shrink-0"
+            aria-label="Open date filters"
+          >
+            <Calendar className="w-4 h-4" />
+          </motion.button>
 
+          {/* Date Display and Filter Panel */}
+          <AnimatePresence>
             {isFilterPanelOpen && (
               <motion.div
-                initial={{ opacity: 0, y: -8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
+                key="filter-panel"
+                initial={{ opacity: 0, x: -8 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -8 }}
                 transition={{ duration: 0.15 }}
-                className="absolute top-full mt-2 left-0 z-50 w-[22rem] rounded-xl border border-border bg-card shadow-lg p-4 space-y-4"
+                className="absolute left-12 top-0 z-50 bg-card border border-border rounded-xl shadow-lg p-3 space-y-3 w-80"
               >
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold text-muted-foreground">Start Date</label>
+                <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-muted-foreground">Start</label>
                   <input
                     type="date"
                     value={draftStartDate}
                     max={draftEndDate}
                     onChange={(e) => setDraftStartDate(e.target.value)}
-                    className="w-full px-3 py-2 bg-card border border-border rounded-xl text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50"
+                    className="w-full px-2.5 py-2 bg-muted/50 border border-border rounded-lg text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50"
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold text-muted-foreground">End Date</label>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-muted-foreground">End</label>
                   <input
                     type="date"
                     value={draftEndDate}
                     min={draftStartDate}
                     onChange={(e) => setDraftEndDate(e.target.value)}
-                    className="w-full px-3 py-2 bg-card border border-border rounded-xl text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50"
+                    className="w-full px-2.5 py-2 bg-muted/50 border border-border rounded-lg text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50"
                   />
                 </div>
+              </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-2">
-                    <label className="text-xs font-semibold text-muted-foreground">Status</label>
-                    <select
-                      value={draftStatusFilter}
-                      onChange={(e) => setDraftStatusFilter(e.target.value)}
-                      className="w-full px-3 py-2 bg-card border border-border rounded-xl text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50"
-                    >
-                      <option value="all">All Statuses</option>
-                      <option value="pending">Pending</option>
-                      <option value="in-progress">In Progress</option>
-                      <option value="review">Review</option>
-                      <option value="completed">Completed</option>
-                    </select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-xs font-semibold text-muted-foreground">Priority</label>
-                    <select
-                      value={draftPriorityFilter}
-                      onChange={(e) => setDraftPriorityFilter(e.target.value)}
-                      className="w-full px-3 py-2 bg-card border border-border rounded-xl text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50"
-                    >
-                      <option value="all">All Priorities</option>
-                      <option value="low">Low</option>
-                      <option value="medium">Medium</option>
-                      <option value="high">High</option>
-                    </select>
-                  </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-muted-foreground">Status</label>
+                  <select
+                    value={draftStatusFilter}
+                    onChange={(e) => setDraftStatusFilter(e.target.value)}
+                    className="w-full px-2.5 py-2 bg-muted/50 border border-border rounded-lg text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50"
+                  >
+                    <option value="all">All</option>
+                    <option value="pending">Pending</option>
+                    <option value="in-progress">In Progress</option>
+                    <option value="review">Review</option>
+                    <option value="completed">Completed</option>
+                  </select>
                 </div>
 
-                {isDraftDateRangeInvalid ? (
-                  <p className="text-xs text-destructive">Start date must be before end date.</p>
-                ) : null}
-
-                <div className="flex items-center justify-end gap-2 border-t border-border pt-3">
-                  <button
-                    type="button"
-                    onClick={handleResetDraftDateRange}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:bg-muted transition-all"
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-muted-foreground">Priority</label>
+                  <select
+                    value={draftPriorityFilter}
+                    onChange={(e) => setDraftPriorityFilter(e.target.value)}
+                    className="w-full px-2.5 py-2 bg-muted/50 border border-border rounded-lg text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50"
                   >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                    Reset
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleApplyDateFilters}
-                    disabled={isDraftDateRangeInvalid}
-                    className="px-3 py-1.5 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-all disabled:opacity-50"
-                  >
-                    Apply
-                  </button>
+                    <option value="all">All</option>
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                  </select>
                 </div>
-              </motion.div>
+              </div>
+
+              {isDraftDateRangeInvalid ? (
+                <p className="text-xs text-destructive text-center">Start date must be before end date.</p>
+              ) : null}
+
+              <div className="flex items-center justify-between gap-2 border-t border-border pt-2">
+                <button
+                  type="button"
+                  onClick={handleResetDraftDateRange}
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:bg-muted transition-all"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  Reset
+                </button>
+                <button
+                  type="button"
+                  onClick={handleApplyDateFilters}
+                  disabled={isDraftDateRangeInvalid}
+                  className="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-all disabled:opacity-50"
+                >
+                  Apply
+                </button>
+              </div>
+            </motion.div>
             )}
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          {isDateRangeInvalid ? (
-            <p className="text-xs text-destructive">Start date must be before end date.</p>
-          ) : null}
+          </AnimatePresence>
+
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={handleOpenFilterPanel}
+            className="p-2.5 rounded-xl border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
+            aria-label="Open advanced filters"
+          >
+            <Filter className="w-4 h-4" />
+          </motion.button>
+
+          {/* Export Button (Mobile) */}
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={handleExportReport}
             disabled={isExporting || !data}
-            className="btn-accent-gradient flex items-center gap-2"
+            className="btn-accent-gradient sm:hidden flex items-center gap-2 shrink-0"
           >
             <Download className="w-4 h-4" />
-            <span>{isExporting ? "Exporting..." : "Export Report"}</span>
+            <span>{isExporting ? "..." : "Export"}</span>
           </motion.button>
         </div>
+
+        {/* Export Button (Desktop) */}
+        <motion.button
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={handleExportReport}
+          disabled={isExporting || !data}
+          className="btn-accent-gradient hidden sm:flex items-center gap-2 shrink-0"
+        >
+          <Download className="w-4 h-4" />
+          <span>{isExporting ? "Exporting..." : "Export Report"}</span>
+        </motion.button>
       </div>
 
-      {isFilterPanelOpen && (
-        <div
-          className="fixed inset-0 z-30"
-          onClick={() => setIsFilterPanelOpen(false)}
-        />
-      )}
-
+      {/* Error Message */}
       {errorMessage ? (
         <div className="mb-5 rounded-xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning">
           Showing last successful report data. Latest refresh failed: {errorMessage}
         </div>
       ) : null}
+
+      {/* Filter Backdrop */}
+      {isFilterPanelOpen && (
+        <div
+          className="fixed inset-0 z-40"
+          onClick={() => setIsFilterPanelOpen(false)}
+        />
+      )}
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">

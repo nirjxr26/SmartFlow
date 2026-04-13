@@ -1,7 +1,6 @@
-import { motion, AnimatePresence } from "framer-motion";
-import { Calendar, User, MoreVertical, MessageSquare, Paperclip, Edit, Trash2 } from "lucide-react";
+import { motion } from "framer-motion";
+import { Calendar, MessageSquare, Paperclip, Edit, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
 
 export type TaskStatus = "pending" | "in-progress" | "review" | "completed";
 export type TaskPriority = "high" | "medium" | "low";
@@ -27,10 +26,10 @@ interface TaskCardProps {
 }
 
 const statusConfig = {
-  pending: { label: "Pending", class: "badge-pending" },
-  "in-progress": { label: "In Progress", class: "badge-progress" },
-  review: { label: "Review", class: "badge-review" },
-  completed: { label: "Completed", class: "badge-completed" },
+  pending: { label: "Pending", class: "badge-pending", borderClass: "border-l-warning/40" },
+  "in-progress": { label: "In Progress", class: "badge-progress", borderClass: "border-l-info/40" },
+  review: { label: "Review", class: "badge-review", borderClass: "border-l-accent/40" },
+  completed: { label: "Completed", class: "badge-completed", borderClass: "border-l-success/40" },
 };
 
 const priorityConfig = {
@@ -56,7 +55,6 @@ export function TaskCard({
 }: TaskCardProps) {
   const statusStyle = statusConfig[status];
   const priorityStyle = priorityConfig[priority];
-  const [showMenu, setShowMenu] = useState(false);
 
   return (
     <motion.div
@@ -64,7 +62,10 @@ export function TaskCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay }}
       onClick={onClick}
-      className="card-interactive p-5 cursor-pointer group relative"
+      className={cn(
+        "card-interactive p-5 cursor-pointer group relative border-l-[3px]",
+        statusStyle.borderClass
+      )}
     >
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1 min-w-0">
@@ -126,68 +127,49 @@ export function TaskCard({
           </div>
         </div>
 
-        {/* Assignee and Actions */}
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary/80 to-primary flex items-center justify-center">
-              <span className="text-primary-foreground text-xs font-semibold">
-                {assignee.name
-                  .split(" ")
-                  .map((n) => n[0])
-                  .join("")}
-              </span>
-            </div>
-          </div>
-          <div className="relative">
-            {canManage && (onEdit || onDelete) && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowMenu(!showMenu);
-              }}
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-muted-foreground hover:bg-muted hover:text-foreground transition-colors opacity-0 group-hover:opacity-100"
-            >
-              <MoreVertical className="w-4 h-4" />
-            </button>
-            )}
-
-            <AnimatePresence>
-              {showMenu && canManage && (onEdit || onDelete) && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.95, y: -10 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                  transition={{ duration: 0.15 }}
-                  className="absolute right-0 top-full mt-1 w-40 bg-card rounded-xl border border-border shadow-lg overflow-hidden z-50"
-                >
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowMenu(false);
-                      onEdit?.();
-                    }}
-                    className="w-full px-4 py-2.5 text-left text-sm text-foreground hover:bg-muted transition-colors flex items-center gap-2"
-                  >
-                    <Edit className="w-4 h-4" />
-                    Edit Task
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowMenu(false);
-                      onDelete?.();
-                    }}
-                    className="w-full px-4 py-2.5 text-left text-sm text-destructive hover:bg-destructive/10 transition-colors flex items-center gap-2"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                    Delete Task
-                  </button>
-                </motion.div>
-              )}
-            </AnimatePresence>
+        <div className="flex items-start">
+          {/* Assignee */}
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary/80 to-primary flex items-center justify-center">
+            <span className="text-primary-foreground text-xs font-semibold">
+              {assignee.name
+                .split(" ")
+                .map((n) => n[0])
+                .join("")}
+            </span>
           </div>
         </div>
       </div>
+
+      {canManage && (onEdit || onDelete) && (
+        <div className="mt-4 pt-4 border-t border-border flex items-center justify-end gap-2">
+          {onEdit && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit();
+              }}
+              title="Edit task"
+              aria-label="Edit task"
+              className="h-8 w-8 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted"
+            >
+              <Edit className="w-3.5 h-3.5" />
+            </button>
+          )}
+          {onDelete && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete();
+              }}
+              title="Delete task"
+              aria-label="Delete task"
+              className="h-8 w-8 rounded-lg border border-destructive/30 flex items-center justify-center text-destructive hover:bg-destructive/10"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+      )}
     </motion.div>
   );
 }

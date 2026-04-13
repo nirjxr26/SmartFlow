@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, Search, Grid3X3, List, X, SlidersHorizontal } from "lucide-react";
+import { Plus, Search, X, SlidersHorizontal } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { TaskCard, TaskStatus, TaskPriority } from "@/components/tasks/TaskCard";
 import { TaskDetailModal } from "@/components/tasks/TaskDetailModal";
@@ -49,9 +49,9 @@ export default function Tasks() {
   const [selectedAssigneeId, setSelectedAssigneeId] = useState<string>("");
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
   const [draftSortMode, setDraftSortMode] = useState<"newest" | "oldest">("newest");
+  const [draftStatusFilter, setDraftStatusFilter] = useState("all");
   const [draftCreatedDateFilter, setDraftCreatedDateFilter] = useState("");
   const [draftAssigneeId, setDraftAssigneeId] = useState<string>("");
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusCounts, setStatusCounts] = useState({
     all: 0,
@@ -67,7 +67,11 @@ export default function Tasks() {
 
   useEffect(() => {
     try {
-      setCurrentUser(JSON.parse(localStorage.getItem('user') || '{}'));
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      setCurrentUser(user);
+      if ((user.role || '').toLowerCase().includes('admin')) {
+        setActiveFilter("pending");
+      }
     } catch {
       setCurrentUser({ id: 0 });
     }
@@ -177,6 +181,7 @@ export default function Tasks() {
   };
 
   const handleOpenFilterPanel = () => {
+    setDraftStatusFilter(activeFilter);
     setDraftSortMode(sortMode);
     setDraftCreatedDateFilter(createdDateFilter);
     setDraftAssigneeId(selectedAssigneeId);
@@ -184,6 +189,7 @@ export default function Tasks() {
   };
 
   const handleApplyFilters = () => {
+    setActiveFilter(draftStatusFilter);
     setSortMode(draftSortMode);
     setCreatedDateFilter(draftCreatedDateFilter);
     setSelectedAssigneeId(draftAssigneeId);
@@ -191,10 +197,12 @@ export default function Tasks() {
   };
 
   const handleResetFilters = () => {
+    setDraftStatusFilter(isAdmin ? "pending" : "all");
     setDraftSortMode("newest");
     setDraftCreatedDateFilter("");
     setDraftAssigneeId("");
 
+    setActiveFilter(isAdmin ? "pending" : "all");
     setSortMode("newest");
     setCreatedDateFilter("");
     setSelectedAssigneeId("");
@@ -365,8 +373,8 @@ export default function Tasks() {
           {/* Header Actions */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
         {/* Search and Filters */}
-        <div className="relative min-w-0 flex items-center gap-2">
-          <div className="relative max-w-sm">
+        <div className="relative min-w-0 flex flex-1 w-full sm:w-auto items-center gap-2 flex-nowrap sm:flex-wrap">
+          <div className="relative min-w-0 flex-1 w-full sm:w-auto sm:max-w-xs">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input
               type="text"
@@ -374,7 +382,7 @@ export default function Tasks() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyPress={handleKeyPress}
-              className="w-full pl-10 pr-10 py-2.5 bg-card border border-border/80 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/40 transition-all"
+              className="w-full pl-10 pr-10 py-2 bg-card border border-border/80 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/40 transition-all"
             />
             {searchQuery && (
               <button
@@ -399,7 +407,19 @@ export default function Tasks() {
             <SlidersHorizontal className="w-4 h-4" />
           </button>
 
-          <div className="flex items-center gap-2 overflow-x-auto pb-1">
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => setIsCreateModalOpen(true)}
+            className="btn-primary-gradient h-10 w-10 sm:w-auto sm:px-4 shrink-0 sm:ml-auto flex items-center justify-center gap-2 text-white"
+            aria-label="Create task"
+            title="Create task"
+          >
+            <Plus className="w-4 h-4" />
+            <span className="hidden sm:inline text-sm font-medium">Create Task</span>
+          </motion.button>
+
+          <div className="hidden sm:flex basis-full items-center gap-2 overflow-x-auto pb-1">
             {statusFilters.map((filter) => (
               <button
                 key={filter.key}
@@ -447,13 +467,30 @@ export default function Tasks() {
                 >
                   <div className="p-4 sm:p-5 space-y-5">
                     <div>
+                      <h3 className="text-sm font-semibold text-foreground">Status</h3>
+                      <select
+                        value={draftStatusFilter}
+                        onChange={(e) => setDraftStatusFilter(e.target.value)}
+                        className="mt-3 w-full px-3 py-2.5 rounded-xl border border-border/70 bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/15 focus:border-primary/40 transition-all"
+                      >
+                        {statusFilters.map((filter) => (
+                          <option key={filter.key} value={filter.key}>
+                            {filter.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="h-px bg-border/60" />
+
+                    <div>
                       <h3 className="text-sm font-semibold text-foreground">Sort</h3>
                       <div className="mt-3 inline-flex items-center gap-1 rounded-xl border border-border/70 bg-muted/20 p-1">
                         <button
                           type="button"
                           onClick={() => setDraftSortMode("newest")}
                           className={cn(
-                            "px-3 py-2 rounded-lg text-xs font-medium transition-colors",
+                            "px-3 py-2 rounded-lg text-sm font-medium transition-colors",
                             draftSortMode === "newest"
                               ? "bg-primary text-primary-foreground"
                               : "text-muted-foreground hover:text-foreground hover:bg-muted"
@@ -465,7 +502,7 @@ export default function Tasks() {
                           type="button"
                           onClick={() => setDraftSortMode("oldest")}
                           className={cn(
-                            "px-3 py-2 rounded-lg text-xs font-medium transition-colors",
+                            "px-3 py-2 rounded-lg text-sm font-medium transition-colors",
                             draftSortMode === "oldest"
                               ? "bg-primary text-primary-foreground"
                               : "text-muted-foreground hover:text-foreground hover:bg-muted"
@@ -528,54 +565,10 @@ export default function Tasks() {
             )}
           </AnimatePresence>
         </div>
-
-        {/* View Toggle and Create */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center bg-card border border-border rounded-xl p-1">
-            <button
-              onClick={() => setViewMode("grid")}
-              className={cn(
-                "w-8 h-8 rounded-lg flex items-center justify-center transition-colors",
-                viewMode === "grid"
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <Grid3X3 className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setViewMode("list")}
-              className={cn(
-                "w-8 h-8 rounded-lg flex items-center justify-center transition-colors",
-                viewMode === "list"
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <List className="w-4 h-4" />
-            </button>
-          </div>
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => setIsCreateModalOpen(true)}
-            className="btn-primary-gradient flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Create Task</span>
-          </motion.button>
-        </div>
       </div>
 
       {/* Task Grid */}
-      <div
-        className={cn(
-          "grid gap-4",
-          viewMode === "grid"
-            ? "grid-cols-1 md:grid-cols-2 xl:grid-cols-3"
-            : "grid-cols-1"
-        )}
-      >
+      <div className="grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
         {filteredTasks.map((task, index) => (
           <TaskCard
             key={task.id}

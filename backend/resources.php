@@ -51,6 +51,21 @@ function resources_require_admin(bool $isAdmin): void
     }
 }
 
+function resources_create_notification(PDO $pdo, int $userId, string $type, string $title, string $message): void
+{
+    if ($userId <= 0) {
+        return;
+    }
+
+    $stmt = $pdo->prepare('INSERT INTO notifications (user_id, type, title, message) VALUES (:user_id, :type, :title, :message)');
+    $stmt->execute([
+        ':user_id' => $userId,
+        ':type' => $type,
+        ':title' => $title,
+        ':message' => $message,
+    ]);
+}
+
 function resources_fetch_resource(PDO $pdo, int $resourceId): ?array
 {
     $stmt = $pdo->prepare('SELECT id, name, status FROM resources WHERE id = :id');
@@ -430,6 +445,10 @@ try {
                     exit;
                 }
 
+                $stmt = $pdo->prepare("SELECT assigned_to FROM resources WHERE id = :id");
+                $stmt->execute([':id' => $resourceId]);
+                $currentAssignedTo = (int)($stmt->fetch(PDO::FETCH_ASSOC)['assigned_to'] ?? 0);
+
                 if (!in_array($resource['status'], ['available', 'assigned', 'maintenance'], true)) {
                     echo json_encode(['success' => false, 'message' => 'Resource cannot be assigned right now']);
                     exit;
@@ -462,16 +481,12 @@ try {
                         ':description' => "booked $resourceName",
                         ':resource_id' => $resourceId
                     ]);
-                    
-                    // Create notification
-                    $stmt = $pdo->prepare("
-                        INSERT INTO notifications (user_id, type, title, message)
-                        VALUES (:user_id, 'success', 'Resource Assigned', :message)
-                    ");
-                    $stmt->execute([
-                        ':user_id' => $assignToId,
-                        ':message' => "$resourceName has been assigned to you"
-                    ]);
+                
+                        resources_create_notification($pdo, $assignToId, 'success', 'Resource Assigned', "$resourceName has been assigned to you");
+
+                        if ($currentAssignedTo > 0 && $currentAssignedTo !== $assignToId && $currentAssignedTo !== $requestUserId) {
+                            resources_create_notification($pdo, $currentAssignedTo, 'warning', 'Resource Reassigned', "$resourceName was reassigned by an administrator");
+                        }
                     
                     echo json_encode(['success' => true, 'message' => 'Resource assigned successfully']);
                 } else {
@@ -485,6 +500,10 @@ try {
                     exit;
                 }
 
+                $stmt = $pdo->prepare("SELECT name, assigned_to FROM resources WHERE id = :id");
+                $stmt->execute([':id' => $resourceId]);
+                $resourceRow = $stmt->fetch(PDO::FETCH_ASSOC);
+
                 $stmt = $pdo->prepare("
                     UPDATE resources 
                     SET status = 'available', assigned_to = NULL
@@ -492,6 +511,17 @@ try {
                 ");
                 
                 $stmt->execute([':id' => $resourceId]);
+
+                $releasedUserId = (int)($resourceRow['assigned_to'] ?? 0);
+                if ($releasedUserId > 0 && $releasedUserId !== $requestUserId) {
+                    resources_create_notification(
+                        $pdo,
+                        $releasedUserId,
+                        'info',
+                        'Resource Released',
+                        ((string)($resourceRow['name'] ?? 'A resource')) . ' was released by an administrator'
+                    );
+                }
                 
                 echo json_encode(['success' => true, 'message' => 'Resource released successfully']);
                 
@@ -501,6 +531,10 @@ try {
                     echo json_encode(['success' => false, 'message' => 'Resource ID required']);
                     exit;
                 }
+
+                $stmt = $pdo->prepare("SELECT name, assigned_to FROM resources WHERE id = :id");
+                $stmt->execute([':id' => $resourceId]);
+                $resourceRow = $stmt->fetch(PDO::FETCH_ASSOC);
 
                 $stmt = $pdo->prepare("
                     UPDATE resources 
@@ -512,6 +546,17 @@ try {
 
                 // Closing pending requests prevents the resource from remaining in Requested view.
                 resources_reject_pending_requests_for_resource($pdo, $resourceId, $requestUserId);
+
+                $assignedUserId = (int)($resourceRow['assigned_to'] ?? 0);
+                if ($assignedUserId > 0 && $assignedUserId !== $requestUserId) {
+                    resources_create_notification(
+                        $pdo,
+                        $assignedUserId,
+                        'warning',
+                        'Resource In Maintenance',
+                        ((string)($resourceRow['name'] ?? 'A resource')) . ' was moved to maintenance by an administrator'
+                    );
+                }
                 
                 echo json_encode(['success' => true, 'message' => 'Resource marked for maintenance']);
 
@@ -567,6 +612,16 @@ try {
                     ':status' => 'pending',
                 ]);
 
+                if ($isAdmin && $requestForUserId !== $requestUserId) {
+                    resources_create_notification(
+                        $pdo,
+                        $requestForUserId,
+                        'info',
+                        'Resource Request Submitted',
+                        'An administrator submitted a resource request on your behalf for ' . $resource['name']
+                    );
+                }
+
                 echo json_encode(['success' => true, 'message' => 'Resource request submitted successfully']);
                 exit;
             } else {
@@ -614,6 +669,10 @@ try {
             ]);
             
             $resourceId = $pdo->lastInsertId();
+
+            if ($assignTo > 0 && $assignTo !== $requestUserId) {
+                resources_create_notification($pdo, $assignTo, 'success', 'Resource Assigned', $name . ' has been assigned to you');
+            }
             
             echo json_encode([
                 'success' => true,
@@ -640,6 +699,10 @@ try {
                 echo json_encode(['success' => false, 'message' => 'Resource not found']);
                 exit;
             }
+
+            $stmt = $pdo->prepare('SELECT name, assigned_to FROM resources WHERE id = :id');
+            $stmt->execute([':id' => $resourceId]);
+            $existingResource = $stmt->fetch(PDO::FETCH_ASSOC) ?: ['name' => 'Resource', 'assigned_to' => null];
 
             $name = trim((string)($data['name'] ?? ''));
             $type = trim((string)($data['type'] ?? ''));
@@ -694,6 +757,22 @@ try {
                 ':assigned_to' => $assignTo,
                 ':id' => $resourceId,
             ]);
+
+            $oldAssignedTo = (int)($existingResource['assigned_to'] ?? 0);
+            $newAssignedTo = (int)($assignTo ?? 0);
+            $resourceName = (string)$name;
+
+            if ($newAssignedTo > 0 && $newAssignedTo !== $requestUserId) {
+                if ($newAssignedTo !== $oldAssignedTo) {
+                    resources_create_notification($pdo, $newAssignedTo, 'success', 'Resource Assigned', $resourceName . ' has been assigned to you');
+                } else {
+                    resources_create_notification($pdo, $newAssignedTo, 'info', 'Resource Updated', $resourceName . ' details were updated by an administrator');
+                }
+            }
+
+            if ($oldAssignedTo > 0 && $oldAssignedTo !== $newAssignedTo && $oldAssignedTo !== $requestUserId) {
+                resources_create_notification($pdo, $oldAssignedTo, 'warning', 'Resource Unassigned', $resourceName . ' is no longer assigned to you');
+            }
 
             echo json_encode(['success' => true, 'message' => 'Resource updated successfully']);
             exit;
@@ -812,6 +891,29 @@ try {
                 ':id' => $requestId,
             ]);
 
+            $resource = resources_fetch_resource($pdo, $resourceId);
+            $resourceName = $resource['name'] ?? 'resource';
+            $requesterId = (int)$requestRow['requested_by'];
+            if ($requesterId > 0 && $requesterId !== $requestUserId) {
+                resources_create_notification(
+                    $pdo,
+                    $requesterId,
+                    $decision === 'approve' ? 'success' : 'warning',
+                    'Resource Request ' . ucfirst($newStatus),
+                    'Your request for ' . $resourceName . ' was ' . $newStatus
+                );
+            }
+
+            if ($decision === 'approve' && $requestForUserId > 0 && $requestForUserId !== $requestUserId && $requestForUserId !== $requesterId) {
+                resources_create_notification(
+                    $pdo,
+                    $requestForUserId,
+                    'success',
+                    'Resource Assigned',
+                    $resourceName . ' has been assigned to you after request approval'
+                );
+            }
+
             echo json_encode(['success' => true, 'message' => 'Request ' . $newStatus . ' successfully']);
             exit;
         }
@@ -830,9 +932,24 @@ try {
             echo json_encode(['success' => false, 'message' => 'Resource ID required']);
             exit;
         }
+
+        $stmt = $pdo->prepare('SELECT name, assigned_to FROM resources WHERE id = :id');
+        $stmt->execute([':id' => $resourceId]);
+        $resourceRow = $stmt->fetch(PDO::FETCH_ASSOC);
         
         $stmt = $pdo->prepare("DELETE FROM resources WHERE id = :id");
         $stmt->execute([':id' => $resourceId]);
+
+        $assignedUserId = (int)($resourceRow['assigned_to'] ?? 0);
+        if ($assignedUserId > 0 && $assignedUserId !== $requestUserId) {
+            resources_create_notification(
+                $pdo,
+                $assignedUserId,
+                'warning',
+                'Resource Removed',
+                ((string)($resourceRow['name'] ?? 'A resource')) . ' was removed by an administrator'
+            );
+        }
         
         echo json_encode(['success' => true, 'message' => 'Resource deleted successfully']);
         

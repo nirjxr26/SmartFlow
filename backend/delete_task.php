@@ -29,7 +29,7 @@ try {
     }
 
     // Check if task exists
-    $stmt = $pdo->prepare("SELECT id, title, created_by FROM tasks WHERE id = ?");
+    $stmt = $pdo->prepare("SELECT id, title, created_by, assignee_id FROM tasks WHERE id = ?");
     $stmt->execute([$taskId]);
     $task = $stmt->fetch(PDO::FETCH_ASSOC);
     
@@ -46,6 +46,28 @@ try {
         exit;
     }
     
+    if ($isAdmin) {
+        $notifyStmt = $pdo->prepare("\n            INSERT INTO notifications (user_id, type, title, message)\n            VALUES (:user_id, :type, :title, :message)\n        ");
+
+        $recipients = array_unique(array_filter([
+            (int)$task['created_by'],
+            (int)($task['assignee_id'] ?? 0),
+        ]));
+
+        foreach ($recipients as $recipientId) {
+            if ($recipientId === $userId) {
+                continue;
+            }
+
+            $notifyStmt->execute([
+                ':user_id' => $recipientId,
+                ':type' => 'warning',
+                ':title' => 'Task Deleted',
+                ':message' => 'Task "' . $task['title'] . '" was deleted by an administrator',
+            ]);
+        }
+    }
+
     // Delete task (comments and attachments will be deleted automatically due to CASCADE)
     $stmt = $pdo->prepare("DELETE FROM tasks WHERE id = ?");
     $stmt->execute([$taskId]);

@@ -58,6 +58,15 @@ try {
     ]);
     
     $taskId = $pdo->lastInsertId();
+
+    if ($assignee_id && $assignee_id !== $userId) {
+        $stmt = $pdo->prepare("\n            INSERT INTO notifications (user_id, type, title, message)\n            VALUES (:user_id, 'info', :title, :message)\n        ");
+        $stmt->execute([
+            ':user_id' => $assignee_id,
+            ':title' => 'New Task Assigned',
+            ':message' => 'You were assigned to task: ' . $title,
+        ]);
+    }
     
     // Fetch the created task
     $stmt = $pdo->prepare("
