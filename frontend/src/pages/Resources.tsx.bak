@@ -1,0 +1,765 @@
+import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
+import { Plus, Search, Monitor, Cpu, DoorOpen, Package, X, Filter, ChevronDown } from "lucide-react";
+import { AppLayout } from "@/components/layout/AppLayout";
+import { ResourceCard, ResourceType, ResourceStatus } from "@/components/resources/ResourceCard";
+import { cn } from "@/lib/utils";
+import Swal from 'sweetalert2';
+
+interface Resource {
+  id: number;
+  name: string;
+  type: ResourceType;
+  status: ResourceStatus;
+  assignedTo?: { id: number; name: string };
+  location?: string;
+  description?: string;
+}
+
+interface UserSummary {
+  id: number;
+  name: string;
+  email?: string;
+  role?: string;
+}
+
+const typeFilters = [
+  { key: "all", label: "All", icon: null },
+  { key: "device", label: "Devices", icon: Monitor },
+  { key: "software", label: "Software", icon: Cpu },
+  { key: "room", label: "Rooms", icon: DoorOpen },
+  { key: "equipment", label: "Equipment", icon: Package },
+];
+
+const statusFilters = [
+  { key: "all", label: "All Status" },
+  { key: "available", label: "Available" },
+  { key: "assigned", label: "Assigned" },
+  { key: "maintenance", label: "Maintenance" },
+];
+
+export default function Resources() {
+  const [currentUser, setCurrentUser] = useState<{ id: number; role?: string }>({ id: 0 });
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [resources, setResources] = useState<Resource[]>([]);
+  const [users, setUsers] = useState<UserSummary[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingResource, setEditingResource] = useState<Resource | null>(null);
+  const [isCreatingResource, setIsCreatingResource] = useState(false);
+  const [isUpdatingResource, setIsUpdatingResource] = useState(false);
+  const [createResourceError, setCreateResourceError] = useState("");
+  const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
+  const [draftTypeFilter, setDraftTypeFilter] = useState("all");
+  const [draftStartDate, setDraftStartDate] = useState("");
+  const [draftEndDate, setDraftEndDate] = useState("");
+  const [resourceForm, setResourceForm] = useState({
+    name: "",
+    type: "device" as ResourceType,
+    location: "",
+    description: "",
+    status: "available" as ResourceStatus,
+    assignTo: "",
+  });
+
+  useEffect(() => {
+    try {
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      setCurrentUser(user);
+      setIsAdmin((user.role || '').toLowerCase().includes('admin'));
+    } catch {
+      setCurrentUser({ id: 0 });
+      setIsAdmin(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!currentUser.id) return;
+    fetchResources();
+  }, [typeFilter, statusFilter, currentUser.id]);
+
+  const fetchResources = async () => {
+    setIsLoading(true);
+    try {
+      const params = new URLSearchParams();
+      params.append('user_id', String(currentUser.id));
+      if (typeFilter !== 'all') params.append('type', typeFilter);
+      if (statusFilter !== 'all') params.append('status', statusFilter);
+      if (searchQuery) params.append('search', searchQuery);
+
+      const response = await fetch(`http://localhost:8000/backend/resources/resources.php?${params.toString()}`, {
+        headers: {
+          'Authorization': localStorage.getItem('token') || '',
+        },
+      });
+      const data = await response.json();
+
+      if (data.success) {
+        setResources(data.resources);
+        setUsers(data.users || []);
+        setIsAdmin(Boolean(data.permissions?.isAdmin));
+      }
+    } catch (error) {
+      console.error('Failed to fetch resources:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSearch = () => {
+    fetchResources();
+  };
+
+  const handleCreateResource = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!isAdmin) {
+      setCreateResourceError('Only admins can add resources');
+      return;
+    }
+
+    if (!resourceForm.name.trim()) {
+      setCreateResourceError("Please enter a resource name");
+      return;
+    }
+
+    setCreateResourceError("");
+    setIsCreatingResource(true);
+
+    try {
+      const response = await fetch('http://localhost:8000/backend/resources/resources.php', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': localStorage.getItem('token') || '',
+        },
+        body: JSON.stringify({
+          name: resourceForm.name,
+          type: resourceForm.type,
+          location: resourceForm.location,
+          description: resourceForm.description,
+          assignTo: resourceForm.assignTo ? Number(resourceForm.assignTo) : null,
+          user_id: currentUser.id,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setIsCreateModalOpen(false);
+        setResourceForm({
+          name: "",
+          type: "device",
+          location: "",
+          description: "",
+          status: "available",
+          assignTo: "",
+        });
+        await Swal.fire({
+          title: 'Success!',
+          text: 'Resource added successfully',
+          icon: 'success',
+          confirmButtonColor: '#3b82f6',
+          timer: 1500,
+        });
+        fetchResources();
+      } else {
+        setCreateResourceError(data.message || 'Failed to add resource');
+      }
+    } catch (error) {
+      console.error('Failed to add resource:', error);
+      setCreateResourceError('Failed to add resource');
+    } finally {
+      setIsCreatingResource(false);
+    }
+  };
+
+  const filteredResources = resources.filter((resource) => {
+    const matchesSearch = resource.name.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesSearch;
+  });
+
+  const typeCounts = {
+    all: resources.length,
+    device: resources.filter(r => r.type === 'device').length,
+    software: resources.filter(r => r.type === 'software').length,
+    room: resources.filter(r => r.type === 'room').length,
+    equipment: resources.filter(r => r.type === 'equipment').length,
+  };
+
+  const statusCounts = {
+    all: resources.length,
+    available: resources.filter(r => r.status === 'available').length,
+    assigned: resources.filter(r => r.status === 'assigned').length,
+    maintenance: resources.filter(r => r.status === 'maintenance').length,
+  };
+
+  const handleOpenFilterPanel = () => {
+    setDraftTypeFilter(typeFilter);
+    setDraftStartDate("");
+    setDraftEndDate("");
+    setIsFilterPanelOpen(true);
+  };
+
+  const handleApplyFilters = () => {
+    setTypeFilter(draftTypeFilter);
+    setIsFilterPanelOpen(false);
+  };
+
+  const handleResetFilters = () => {
+    setDraftTypeFilter("all");
+    setDraftStartDate("");
+    setDraftEndDate("");
+    setTypeFilter("all");
+    setIsFilterPanelOpen(false);
+  };
+
+  const openEditResourceModal = (resource: Resource) => {
+    setEditingResource(resource);
+    setResourceForm({
+      name: resource.name,
+      type: resource.type,
+      location: resource.location || '',
+      description: resource.description || '',
+      status: resource.status,
+      assignTo: resource.assignedTo?.id ? String(resource.assignedTo.id) : '',
+    });
+    setCreateResourceError('');
+    setIsEditModalOpen(true);
+  };
+
+  const handleUpdateResource = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingResource) return;
+
+    setIsUpdatingResource(true);
+    try {
+      const response = await fetch('http://localhost:8000/backend/resources/resources.php', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: localStorage.getItem('token') || '',
+        },
+        body: JSON.stringify({
+          action: 'update_resource',
+          user_id: currentUser.id,
+          id: editingResource.id,
+          name: resourceForm.name,
+          type: resourceForm.type,
+          location: resourceForm.location,
+          description: resourceForm.description,
+          status: resourceForm.status,
+          assignTo: resourceForm.assignTo ? Number(resourceForm.assignTo) : 0,
+        }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setIsEditModalOpen(false);
+        setEditingResource(null);
+        await Swal.fire({ icon: 'success', title: 'Updated', text: 'Resource updated successfully', confirmButtonColor: '#3b82f6', timer: 1400 });
+        fetchResources();
+      } else {
+        setCreateResourceError(data.message || 'Failed to update resource');
+      }
+    } catch (error) {
+      console.error('Failed to update resource:', error);
+      setCreateResourceError('Failed to update resource');
+    } finally {
+      setIsUpdatingResource(false);
+    }
+  };
+
+  const handleDeleteResource = async (resourceId: number) => {
+    const result = await Swal.fire({
+      title: 'Delete this resource?',
+      text: 'This action cannot be undone.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: 'Delete',
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      const response = await fetch('http://localhost:8000/backend/resources/resources.php', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: localStorage.getItem('token') || '',
+        },
+        body: JSON.stringify({ id: resourceId, user_id: currentUser.id }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        await Swal.fire({ icon: 'success', title: 'Deleted', text: 'Resource deleted', confirmButtonColor: '#3b82f6', timer: 1300 });
+        fetchResources();
+      } else {
+        Swal.fire({ icon: 'error', title: 'Delete failed', text: data.message || 'Unable to delete resource', confirmButtonColor: '#3b82f6' });
+      }
+    } catch (error) {
+      console.error('Failed to delete resource:', error);
+      Swal.fire({ icon: 'error', title: 'Delete failed', text: 'Unable to delete resource', confirmButtonColor: '#3b82f6' });
+    }
+  };
+
+  const handleQuickResourceAction = async (resource: Resource, decision: 'approve' | 'reject') => {
+    const confirmResult = await Swal.fire({
+      title: decision === 'approve' ? 'Approve Resource?' : 'Reject Resource?',
+      text: decision === 'approve'
+        ? `Mark ${resource.name} as available?`
+        : `Mark ${resource.name} as maintenance?`,
+      icon: decision === 'approve' ? 'question' : 'warning',
+      showCancelButton: true,
+      confirmButtonColor: decision === 'approve' ? '#3b82f6' : '#ef4444',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: decision === 'approve' ? 'Yes, approve' : 'Yes, reject',
+      cancelButtonText: 'Cancel',
+    });
+
+    if (!confirmResult.isConfirmed) {
+      return;
+    }
+
+    try {
+      const response = await fetch('http://localhost:8000/backend/resources/resources.php', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: localStorage.getItem('token') || '',
+        },
+        body: JSON.stringify({
+          action: 'update_resource',
+          user_id: currentUser.id,
+          id: resource.id,
+          name: resource.name,
+          type: resource.type,
+          location: resource.location || '',
+          description: resource.description || '',
+          status: decision === 'approve' ? 'available' : 'maintenance',
+          assignTo: decision === 'approve' ? 0 : 0,
+        }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        await Swal.fire({ icon: 'success', title: decision === 'approve' ? 'Approved' : 'Rejected', text: data.message || 'Resource updated', confirmButtonColor: '#3b82f6', timer: 1300 });
+        fetchResources();
+      } else {
+        Swal.fire({ icon: 'error', title: 'Action failed', text: data.message || 'Unable to update resource', confirmButtonColor: '#3b82f6' });
+      }
+    } catch (error) {
+      console.error('Failed to update resource action:', error);
+      Swal.fire({ icon: 'error', title: 'Action failed', text: 'Unable to update resource', confirmButtonColor: '#3b82f6' });
+    }
+  };
+
+  return (
+    <AppLayout title="Resources" subtitle="Manage and allocate resources across your organization.">
+      {/* Header with Search and Filters */}
+      <div className="flex flex-col gap-4 mb-6">
+        {/* Search and Filter Row */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          {/* Search */}
+          <div className="relative min-w-0 max-w-sm w-full">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Search resources..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+              className="w-full pl-10 pr-4 py-2.5 bg-card border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => {
+                  setSearchQuery("");
+                  fetchResources();
+                }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+
+          {/* Filter Icon Button with Popup */}
+          <div className="relative">
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={handleOpenFilterPanel}
+              className="p-2.5 rounded-xl border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted transition-all"
+            >
+              <Filter className="w-4 h-4" />
+            </motion.button>
+
+            {/* Filter Panel Dropdown */}
+            {isFilterPanelOpen && (
+              <motion.div
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.15 }}
+                className="absolute top-full mt-2 -left-32 z-50 w-80 rounded-xl border border-border bg-card shadow-lg p-4 space-y-4"
+              >
+                  {/* Type Filter Group */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-semibold text-muted-foreground">Type</label>
+                    <div className="flex flex-wrap gap-2">
+                      {typeFilters.map((filter) => {
+                        const Icon = filter.icon;
+                        return (
+                          <button
+                            key={filter.key}
+                            onClick={() => setDraftTypeFilter(filter.key)}
+                            className={cn(
+                              "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all",
+                              draftTypeFilter === filter.key
+                                ? "bg-primary text-primary-foreground"
+                                : "bg-muted text-muted-foreground hover:bg-muted/70"
+                            )}
+                          >
+                            {Icon && <Icon className="w-3 h-3" />}
+                            {filter.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Date Filter Group */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-semibold text-muted-foreground">Date Range</label>
+                    <div className="space-y-2">
+                      <input
+                        type="date"
+                        value={draftStartDate}
+                        onChange={(e) => setDraftStartDate(e.target.value)}
+                        className="w-full rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50"
+                      />
+                      <input
+                        type="date"
+                        value={draftEndDate}
+                        onChange={(e) => setDraftEndDate(e.target.value)}
+                        className="w-full rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Apply/Reset Buttons */}
+                  <div className="flex items-center justify-end gap-2 border-t border-border pt-3">
+                    <button
+                      onClick={handleResetFilters}
+                      className="px-3 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:bg-muted transition-all"
+                    >
+                      Reset
+                    </button>
+                    <button
+                      onClick={handleApplyFilters}
+                      className="px-3 py-1.5 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-all"
+                    >
+                      Apply
+                    </button>
+                  </div>
+              </motion.div>
+            )}
+          </div>
+
+          {/* Add Resource Button */}
+          {isAdmin && (
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="btn-primary-gradient flex items-center gap-2 ml-auto"
+              onClick={() => {
+                setCreateResourceError("");
+                setResourceForm({ name: '', type: 'device', location: '', description: '', status: 'available', assignTo: '' });
+                setIsCreateModalOpen(true);
+              }}
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add Resource</span>
+            </motion.button>
+          )}
+        </div>
+
+        {/* Status Filter Pills Row */}
+        <div className="flex flex-wrap items-center gap-2">
+          {statusFilters.map((filter) => (
+            <button
+              key={filter.key}
+              onClick={() => setStatusFilter(filter.key)}
+              className={cn(
+                "inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium whitespace-nowrap transition-all",
+                statusFilter === filter.key
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-card border border-border text-muted-foreground hover:text-foreground hover:bg-muted"
+              )}
+            >
+              {filter.label}
+              <span className={cn(
+                "px-1.5 py-0.5 rounded-full text-[10px] font-semibold",
+                statusFilter === filter.key
+                  ? "bg-primary-foreground/20"
+                  : "bg-muted text-muted-foreground"
+              )}>
+                {statusCounts[filter.key as keyof typeof statusCounts]}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Backdrop for Filter Panel */}
+      {isFilterPanelOpen && (
+        <div
+          className="fixed inset-0 z-30"
+          onClick={() => setIsFilterPanelOpen(false)}
+        />
+      )}
+
+      {/* Create Resource Modal */}
+      {isCreateModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-2xl rounded-2xl border border-border bg-card shadow-2xl">
+            <div className="flex items-center justify-between border-b border-border px-6 py-4">
+              <h3 className="text-lg font-semibold text-foreground">Add New Resource</h3>
+              <button
+                type="button"
+                onClick={() => setIsCreateModalOpen(false)}
+                className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateResource} className="space-y-4 px-6 py-5">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Resource Name</label>
+                  <input
+                    type="text"
+                    value={resourceForm.name}
+                    onChange={(e) => setResourceForm((prev) => ({ ...prev, name: e.target.value }))}
+                    placeholder="Resource Name"
+                    className="w-full rounded-xl border border-border bg-muted/40 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Type</label>
+                  <select
+                    value={resourceForm.type}
+                    onChange={(e) => setResourceForm((prev) => ({ ...prev, type: e.target.value as ResourceType }))}
+                    className="w-full rounded-xl border border-border bg-muted/40 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50"
+                  >
+                    <option value="device">Device</option>
+                    <option value="software">Software</option>
+                    <option value="room">Room</option>
+                    <option value="equipment">Equipment</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Status</label>
+                  <select
+                    value={resourceForm.status}
+                    onChange={(e) => setResourceForm((prev) => ({ ...prev, status: e.target.value as ResourceStatus }))}
+                    className="w-full rounded-xl border border-border bg-muted/40 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50"
+                  >
+                    <option value="available">Available</option>
+                    <option value="assigned">Assigned</option>
+                    <option value="maintenance">Maintenance</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Assign To (admin)</label>
+                  <select
+                    value={resourceForm.assignTo}
+                    onChange={(e) => setResourceForm((prev) => ({ ...prev, assignTo: e.target.value }))}
+                    className="w-full rounded-xl border border-border bg-muted/40 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50"
+                  >
+                    <option value="">Unassigned</option>
+                    {users.map((user) => (
+                      <option key={user.id} value={user.id}>{user.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">Location (optional)</label>
+                <input
+                  type="text"
+                  value={resourceForm.location}
+                  onChange={(e) => setResourceForm((prev) => ({ ...prev, location: e.target.value }))}
+                  placeholder="Location"
+                  className="w-full rounded-xl border border-border bg-muted/40 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">Description (optional)</label>
+                <textarea
+                  value={resourceForm.description}
+                  onChange={(e) => setResourceForm((prev) => ({ ...prev, description: e.target.value }))}
+                  placeholder="Description"
+                  rows={4}
+                  className="w-full rounded-xl border border-border bg-muted/40 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50"
+                />
+              </div>
+
+              {createResourceError && (
+                <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                  {createResourceError}
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-2 border-t border-border pt-4">
+                <button
+                  type="button"
+                  onClick={() => setIsCreateModalOpen(false)}
+                  className="rounded-xl border border-border px-4 py-2.5 text-sm text-foreground hover:bg-muted"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isCreatingResource}
+                  className="rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+                >
+                  {isCreatingResource ? 'Adding...' : 'Add Resource'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Resource Modal */}
+      {isEditModalOpen && editingResource && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-2xl rounded-2xl border border-border bg-card shadow-2xl">
+            <div className="flex items-center justify-between border-b border-border px-6 py-4">
+              <h3 className="text-lg font-semibold text-foreground">Edit Resource</h3>
+              <button type="button" onClick={() => setIsEditModalOpen(false)} className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateResource} className="space-y-4 px-6 py-5">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Resource Name</label>
+                  <input type="text" value={resourceForm.name} onChange={(e) => setResourceForm((prev) => ({ ...prev, name: e.target.value }))} className="w-full rounded-xl border border-border bg-muted/40 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Type</label>
+                  <select value={resourceForm.type} onChange={(e) => setResourceForm((prev) => ({ ...prev, type: e.target.value as ResourceType }))} className="w-full rounded-xl border border-border bg-muted/40 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50">
+                    <option value="device">Device</option>
+                    <option value="software">Software</option>
+                    <option value="room">Room</option>
+                    <option value="equipment">Equipment</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Status</label>
+                  <select value={resourceForm.status} onChange={(e) => setResourceForm((prev) => ({ ...prev, status: e.target.value as ResourceStatus }))} className="w-full rounded-xl border border-border bg-muted/40 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50">
+                    <option value="available">Available</option>
+                    <option value="assigned">Assigned</option>
+                    <option value="maintenance">Maintenance</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Assign To</label>
+                  <select value={resourceForm.assignTo} onChange={(e) => setResourceForm((prev) => ({ ...prev, assignTo: e.target.value }))} className="w-full rounded-xl border border-border bg-muted/40 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50">
+                    <option value="">Unassigned</option>
+                    {users.map((user) => (
+                      <option key={user.id} value={user.id}>{user.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">Location</label>
+                <input type="text" value={resourceForm.location} onChange={(e) => setResourceForm((prev) => ({ ...prev, location: e.target.value }))} className="w-full rounded-xl border border-border bg-muted/40 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50" />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">Description</label>
+                <textarea value={resourceForm.description} onChange={(e) => setResourceForm((prev) => ({ ...prev, description: e.target.value }))} rows={4} className="w-full rounded-xl border border-border bg-muted/40 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50" />
+              </div>
+
+              {createResourceError && <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{createResourceError}</div>}
+
+              <div className="flex items-center justify-end gap-2 border-t border-border pt-4">
+                <button type="button" onClick={() => setIsEditModalOpen(false)} className="rounded-xl border border-border px-4 py-2.5 text-sm text-foreground hover:bg-muted">Cancel</button>
+                <button type="submit" disabled={isUpdatingResource} className="rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60">
+                  {isUpdatingResource ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Loading */}
+      {isLoading && (
+        <div className="flex items-center justify-center py-16">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        </div>
+      )}
+
+      {/* Resources Grid */}
+      {!isLoading && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 auto-rows-fr gap-5">
+          {filteredResources.map((resource, index) => (
+            <ResourceCard
+              key={resource.id}
+              {...resource}
+              isAdmin={isAdmin}
+              onModify={() => openEditResourceModal(resource)}
+              onApprove={() => handleQuickResourceAction(resource, 'approve')}
+              onReject={() => handleQuickResourceAction(resource, 'reject')}
+              delay={index * 0.05}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Empty State */}
+      {!isLoading && filteredResources.length === 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex flex-col items-center justify-center py-16 text-center"
+        >
+          <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mb-4">
+            <Package className="w-8 h-8 text-muted-foreground" />
+          </div>
+          <h3 className="text-lg font-semibold text-foreground mb-2">
+            No resources found
+          </h3>
+          <p className="text-muted-foreground max-w-sm">
+            {searchQuery
+              ? `No resources match "${searchQuery}". Try a different search term.`
+              : "There are no resources matching your filters."}
+          </p>
+        </motion.div>
+      )}
+
+    </AppLayout>
+  );
+}

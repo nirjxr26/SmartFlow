@@ -45,14 +45,14 @@ Managing tasks, approvals, resources, and team visibility across daily operation
 
 ## Architecture
 
-![Architecture](diagram/Architecture.png)
+![Architecture](frontend/diagram/Architecture.png)
 
 ## Application Flow
 
 1. User opens frontend and lands on login/public page.
 2. Frontend sends authentication request to backend and receives session/token response.
 3. Authenticated state is stored on client and protected routes become accessible.
-4. Frontend calls backend endpoints under `/backend/*.php` for tasks, approvals, resources, profile, notifications, settings, and reports.
+4. Frontend calls backend endpoints under sectioned paths such as `/backend/tasks/*.php`, `/backend/users/*.php`, and `/backend/settings/*.php`.
 5. Backend controllers validate inputs, execute business logic, and query MySQL through PDO.
 6. Dashboard endpoints aggregate KPIs/charts from live data and return JSON payloads.
 7. CRUD and status actions write operational changes back to database tables.
@@ -62,7 +62,7 @@ Managing tasks, approvals, resources, and team visibility across daily operation
 
 ### Core Request Pipeline
 
-`React Client -> Fetch API -> PHP Endpoint (/backend/*.php) -> config.php/PDO -> MySQL -> JSON Response -> UI State Update`
+`React Client -> Fetch API -> PHP Endpoint (/backend/<section>/<endpoint>.php) -> config.php/PDO -> MySQL -> JSON Response -> UI State Update`
 
 ## Tech Stack
 
@@ -84,15 +84,22 @@ Managing tasks, approvals, resources, and team visibility across daily operation
 ```bash
 git clone https://github.com/Nirjar26/SmartFlow.git
 cd SmartFlow
+```
 
+```bash
+# Install frontend dependencies
+cd frontend
 npm install
 ```
 
 ```bash
-# Start backend server from project root (required for /backend path)
+# Start backend server from SmartFlow root (required for /backend path)
 php -S localhost:8000
+```
 
+```bash
 # Start frontend (separate terminal)
+cd frontend
 npm run dev
 ```
 
@@ -108,65 +115,96 @@ DB_PASS=
 
 APP_ENV=development
 API_BASE_URL=http://localhost:8000/backend
-FRONTEND_URL=http://localhost:8080
+FRONTEND_URL=http://localhost:5173
 ```
 
 ## API Endpoints
 
-- `POST /backend/login.php`
-- `POST /backend/register.php`
-- `GET /backend/dashboard.php`
-- `GET /backend/tasks.php`
-- `POST /backend/create_task.php`
-- `POST /backend/update_task.php`
-- `POST /backend/delete_task.php`
-- `GET /backend/task_detail.php?id=:id`
-- `GET|POST|PUT /backend/approvals.php`
-- `GET|POST|DELETE /backend/resources.php`
-- `GET|POST|DELETE /backend/notifications.php`
-- `GET /backend/profile.php?id=:id`
-- `POST /backend/update_profile.php`
-- `POST /backend/upload_avatar.php`
-- `GET|POST /backend/settings.php`
-- `GET /backend/reports.php`
-- `GET /backend/users.php`
+- `POST /backend/auth/login.php`
+- `POST /backend/auth/register.php`
+- `GET /backend/dashboard/dashboard.php`
+- `GET /backend/tasks/tasks.php`
+- `POST /backend/tasks/create_task.php`
+- `POST /backend/tasks/update_task.php`
+- `POST /backend/tasks/delete_task.php`
+- `GET /backend/tasks/task_detail.php?id=:id`
+- `GET|POST|PUT /backend/approvals/approvals.php`
+- `GET|POST|DELETE /backend/resources/resources.php`
+- `GET|POST|DELETE /backend/notifications/notifications.php`
+- `GET /backend/users/profile.php?id=:id`
+- `POST /backend/users/update_profile.php`
+- `POST /backend/users/upload_avatar.php`
+- `GET|POST /backend/settings/settings.php`
+- `GET /backend/reports/reports.php`
+- `GET /backend/users/users.php`
 
 ## Folder Structure
 
 ```text
 .
 ├── backend/
+│   ├── approvals/
+│   │   └── approvals.php
+│   ├── auth/
+│   │   ├── login.php
+│   │   └── register.php
 │   ├── config.php
+│   ├── dashboard/
+│   │   └── dashboard.php
 │   ├── full_schema.sql
 │   ├── migrations/
+│   ├── notifications/
+│   │   └── notifications.php
+│   ├── reports/
+│   │   └── reports.php
+│   ├── resources/
+│   │   ├── resources.php
+│   │   └── set_resource_distribution.php
 │   ├── scripts/
 │   │   ├── reset_admin_credentials.php
 │   │   └── reset_minimal_data.php
+│   ├── settings/
+│   │   └── settings.php
+│   ├── tasks/
+│   │   ├── attachments/
+│   │   │   ├── delete_attachment.php
+│   │   │   ├── download_attachment.php
+│   │   │   ├── rename_attachment.php
+│   │   │   └── upload_attachment.php
+│   │   ├── comments/
+│   │   │   ├── add_comment.php
+│   │   │   ├── delete_comment.php
+│   │   │   └── edit_comment.php
+│   │   ├── create_task.php
+│   │   ├── delete_task.php
+│   │   ├── task_detail.php
+│   │   ├── tasks.php
+│   │   └── update_task.php
 │   ├── uploads/
-│   │   └── avatars/
-│   └── *.php
-├── src/
-│   ├── admin/
-│   ├── components/
-│   ├── hooks/
-│   ├── lib/
-│   ├── pages/
-│   ├── App.tsx
-│   └── main.tsx
-├── diagram/
-├── docs/
-├── public/
-├── package.json
+│   │   ├── avatars/
+│   │   └── task_attachments/
+│   └── users/
+│       ├── profile.php
+│       ├── update_profile.php
+│       ├── upload_avatar.php
+│       └── users.php
+├── frontend/
+│   ├── diagram/
+│   ├── docs/
+│   ├── public/
+│   ├── src/
+│   │   ├── admin/
+│   │   ├── components/
+│   │   ├── hooks/
+│   │   ├── lib/
+│   │   └── pages/
+│   ├── package.json
+│   ├── vite.config.ts
+│   └── tsconfig.json
 └── README.md
 ```
 
 ## Minimal Baseline Data
-
-To clear large data and keep only a small baseline set:
-
-```bash
-php backend/scripts/reset_minimal_data.php
-```
 
 Default admin credentials:
 
@@ -180,4 +218,7 @@ Password: password123
 Nirjar Goswami  
 GitHub: https://github.com/Nirjar26
 
-Associated with CHARUSAT.
+Swara Shah 
+GitHub: https://github.com/Swara107
+
+Associated with CHARUSAT(Acedemic Project).
