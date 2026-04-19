@@ -6,15 +6,19 @@ import {
   ChevronLeft,
   ChevronRight,
   ListTodo,
+  Pencil,
+  Plus,
   RefreshCw,
   Shield,
-  UserCheck,
   UserCog,
+  UserPlus,
   Users,
   Wrench,
   X,
+  Trash2,
 } from "lucide-react";
 import { AdminStatCard } from "./AdminStatCard";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface User {
   id: number;
@@ -66,6 +70,12 @@ type PopupKind = "users" | "tasks" | "approvals" | "resources";
 
 const PREVIEW_LIMIT = 20;
 const PAGE_SIZE = 10;
+const USER_ROLE_OPTIONS = ["User", "Administrator", "HR", "Executive", "Manager", "Team Lead"];
+
+const canManageUsersRole = (role?: string | null) => {
+  const normalized = (role || "").toLowerCase();
+  return normalized.includes("admin") || normalized.includes("hr") || normalized.includes("executive");
+};
 
 export function AdminPanel() {
   const [users, setUsers] = useState<User[]>([]);
@@ -77,22 +87,109 @@ export function AdminPanel() {
   const [error, setError] = useState<string | null>(null);
   const [popupKind, setPopupKind] = useState<PopupKind | null>(null);
   const [popupPage, setPopupPage] = useState(1);
+  const [currentUserId, setCurrentUserId] = useState<number>(0);
+  const [currentUserRole, setCurrentUserRole] = useState<string>("");
+  const [isCreatingUser, setIsCreatingUser] = useState(false);
+  const [isUpdatingUser, setIsUpdatingUser] = useState(false);
+  const [deletingUserId, setDeletingUserId] = useState<number | null>(null);
+  const [userActionError, setUserActionError] = useState<string | null>(null);
+  const [editUserError, setEditUserError] = useState<string | null>(null);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [newUser, setNewUser] = useState({
+    name: "",
+    email: "",
+    password: "",
+    role: "User",
+    department: "",
+  });
+  const [editUser, setEditUser] = useState({
+    name: "",
+    email: "",
+    password: "",
+    role: "User",
+    department: "",
+  });
 
   const getAuthHeaders = () => ({
     Authorization: localStorage.getItem("token") || "",
   });
 
+  const openEditUser = (user: User) => {
+    setUserActionError(null);
+    setEditUserError(null);
+    setEditingUser(user);
+    setEditUser({
+      name: user.name,
+      email: user.email,
+      password: "",
+      role: user.role || "User",
+      department: user.department || "",
+    });
+  };
+
+  const closeEditUser = () => {
+    setEditingUser(null);
+    setEditUserError(null);
+    setIsUpdatingUser(false);
+  };
+
+  const handleUpdateUser = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setEditUserError(null);
+
+    if (!editingUser || !currentUserId) {
+      setEditUserError("Unable to resolve the user being edited.");
+      return;
+    }
+
+    setIsUpdatingUser(true);
+    try {
+      const response = await fetch("http://localhost:8000/backend/users/users.php", {
+        method: "PATCH",
+        headers: {
+          ...getAuthHeaders(),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          user_id: currentUserId,
+          id: editingUser.id,
+          name: editUser.name.trim(),
+          email: editUser.email.trim(),
+          password: editUser.password,
+          role: editUser.role.trim(),
+          department: editUser.department.trim(),
+        }),
+      });
+
+      const data = await response.json();
+      if (!data.success) {
+        throw new Error(data.message || "Unable to update user");
+      }
+
+      closeEditUser();
+      await fetchAll();
+    } catch (updateError) {
+      const message = updateError instanceof Error ? updateError.message : "Failed to update user";
+      setEditUserError(message);
+    } finally {
+      setIsUpdatingUser(false);
+    }
+  };
+
   const fetchAll = async () => {
     setIsLoading(true);
     setError(null);
+    setUserActionError(null);
 
     try {
       const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
-      const userId = storedUser?.id;
+      const userId = Number(storedUser?.id || 0);
+      setCurrentUserId(userId);
+      setCurrentUserRole(String(storedUser?.role || ""));
 
       const [usersRes, tasksRes, approvalsRes, resourcesRes, notificationsRes] =
         await Promise.all([
-          fetch("http://localhost:8000/backend/users/users.php", { headers: getAuthHeaders() }),
+          fetch(`http://localhost:8000/backend/users/users.php?user_id=${userId}`, { headers: getAuthHeaders() }),
           fetch("http://localhost:8000/backend/tasks/tasks.php", { headers: getAuthHeaders() }),
           fetch(`http://localhost:8000/backend/approvals/approvals.php?user_id=${userId || 1}`, { headers: getAuthHeaders() }),
           fetch(`http://localhost:8000/backend/resources/resources.php?user_id=${userId || 1}`, { headers: getAuthHeaders() }),
@@ -137,6 +234,93 @@ export function AdminPanel() {
   useEffect(() => {
     fetchAll();
   }, []);
+
+  const handleCreateUser = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setUserActionError(null);
+
+    if (!currentUserId) {
+      setUserActionError("Unable to resolve current user ID.");
+      return;
+    }
+
+    setIsCreatingUser(true);
+    try {
+      const response = await fetch("http://localhost:8000/backend/users/users.php", {
+        method: "POST",
+        headers: {
+          ...getAuthHeaders(),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          user_id: currentUserId,
+          name: newUser.name.trim(),
+          email: newUser.email.trim(),
+          password: newUser.password,
+          role: newUser.role.trim(),
+          department: newUser.department.trim(),
+        }),
+      });
+
+      const data = await response.json();
+      if (!data.success) {
+        throw new Error(data.message || "Unable to create user");
+      }
+
+      setNewUser({
+        name: "",
+        email: "",
+        password: "",
+        role: "User",
+        department: "",
+      });
+
+      await fetchAll();
+    } catch (createError) {
+      const message = createError instanceof Error ? createError.message : "Failed to create user";
+      setUserActionError(message);
+    } finally {
+      setIsCreatingUser(false);
+    }
+  };
+
+  const handleDeleteUser = async (userId: number) => {
+    setUserActionError(null);
+
+    if (!currentUserId) {
+      setUserActionError("Unable to resolve current user ID.");
+      return;
+    }
+
+    setDeletingUserId(userId);
+    try {
+      const response = await fetch("http://localhost:8000/backend/users/users.php", {
+        method: "DELETE",
+        headers: {
+          ...getAuthHeaders(),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          user_id: currentUserId,
+          id: userId,
+        }),
+      });
+
+      const data = await response.json();
+      if (!data.success) {
+        throw new Error(data.message || "Unable to delete user");
+      }
+
+      setUsers((prev) => prev.filter((user) => user.id !== userId));
+    } catch (deleteError) {
+      const message = deleteError instanceof Error ? deleteError.message : "Failed to delete user";
+      setUserActionError(message);
+    } finally {
+      setDeletingUserId(null);
+    }
+  };
+
+  const canManageUsers = canManageUsersRole(currentUserRole);
 
   const stats = useMemo(() => {
     const admins = users.filter((user) =>
@@ -229,7 +413,9 @@ export function AdminPanel() {
 
   const popupTitle =
     popupKind === "users"
-      ? "All Users"
+      ? canManageUsers
+        ? "Create User"
+        : "All Users"
       : popupKind === "tasks"
       ? "All Tasks"
       : popupKind === "approvals"
@@ -238,8 +424,16 @@ export function AdminPanel() {
       ? "All Resources"
       : "";
 
-  const totalPages = Math.max(1, Math.ceil(popupItems.length / PAGE_SIZE));
+  const totalPopupPages = Math.max(1, Math.ceil(popupItems.length / PAGE_SIZE));
   const paginatedPopupItems = popupItems.slice((popupPage - 1) * PAGE_SIZE, popupPage * PAGE_SIZE);
+
+  const handlePopupPrevious = () => {
+    setPopupPage((prev) => Math.max(1, prev - 1));
+  };
+
+  const handlePopupNext = () => {
+    setPopupPage((prev) => Math.min(totalPopupPages, prev + 1));
+  };
 
   if (isLoading) {
     return (
@@ -373,7 +567,15 @@ export function AdminPanel() {
           <h3 className="text-base font-semibold text-foreground">All Users</h3>
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground">{users.length} users</span>
-            {users.length > PREVIEW_LIMIT && (
+            {canManageUsers ? (
+              <button
+                type="button"
+                onClick={() => openPopup("users")}
+                className="rounded-lg border border-border px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted"
+              >
+                Create User
+              </button>
+            ) : users.length > PREVIEW_LIMIT ? (
               <button
                 type="button"
                 onClick={() => openPopup("users")}
@@ -381,9 +583,15 @@ export function AdminPanel() {
               >
                 View All
               </button>
-            )}
+            ) : null}
           </div>
         </div>
+
+        {userActionError && (
+          <div className="mb-3 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            {userActionError}
+          </div>
+        )}
 
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -394,6 +602,7 @@ export function AdminPanel() {
                 <th className="text-left py-2 pr-3 font-medium">Email</th>
                 <th className="text-left py-2 pr-3 font-medium">Role</th>
                 <th className="text-left py-2 pr-3 font-medium">Department</th>
+                {canManageUsers && <th className="text-left py-2 pr-3 font-medium">Actions</th>}
               </tr>
             </thead>
             <tbody>
@@ -414,6 +623,31 @@ export function AdminPanel() {
                     </span>
                   </td>
                   <td className="py-3 pr-3 text-muted-foreground">{user.department || "-"}</td>
+                  {canManageUsers && (
+                    <td className="py-3 pr-3">
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-foreground hover:bg-muted"
+                          onClick={() => openEditUser(user)}
+                          title="Edit user"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1 rounded-md border border-destructive/40 px-2 py-1 text-xs text-destructive disabled:opacity-50"
+                          onClick={() => handleDeleteUser(user.id)}
+                          disabled={user.id === currentUserId || deletingUserId === user.id}
+                          title={user.id === currentUserId ? "You cannot delete your own account" : "Delete user"}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          {deletingUserId === user.id ? "Deleting..." : "Delete"}
+                        </button>
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -624,36 +858,23 @@ export function AdminPanel() {
         </motion.div>
       </div>
 
-      {popupKind && popupItems.length > PREVIEW_LIMIT && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-5xl rounded-2xl border border-border bg-card shadow-2xl">
-            <div className="flex items-center justify-between border-b border-border px-6 py-4">
-              <div>
-                <h3 className="text-lg font-semibold text-foreground">{popupTitle}</h3>
-                <p className="text-xs text-muted-foreground">Showing {(popupPage - 1) * PAGE_SIZE + 1}-{Math.min(popupPage * PAGE_SIZE, popupItems.length)} of {popupItems.length}</p>
-              </div>
-              <button
-                type="button"
-                onClick={closePopup}
-                className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground"
-              >
-                <X className="h-4 w-4" />
-              </button>
+      <Dialog open={Boolean(popupKind && popupKind !== "users" && popupItems.length > PREVIEW_LIMIT)} onOpenChange={(open) => { if (!open) closePopup(); }}>
+        <DialogContent className="w-[calc(100vw-2.75rem)] sm:w-full max-w-6xl h-auto max-h-[90vh] rounded-2xl border border-border bg-card shadow-2xl flex flex-col overflow-hidden p-0">
+          <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border px-4 sm:px-5 py-3.5 bg-card/95 backdrop-blur-sm">
+            <div>
+              <DialogTitle className="text-base sm:text-lg font-semibold text-foreground">{popupTitle}</DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground">
+                {popupItems.length === 0
+                  ? "No records available"
+                  : `Showing ${(popupPage - 1) * PAGE_SIZE + 1}-${Math.min(popupPage * PAGE_SIZE, popupItems.length)} of ${popupItems.length}`}
+              </DialogDescription>
             </div>
+          </div>
 
-            <div className="max-h-[65vh] overflow-auto px-6 py-4">
+          <div className="flex-1 overflow-y-auto p-4 sm:p-5">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border text-muted-foreground">
-                    {popupKind === "users" && (
-                      <>
-                        <th className="text-left py-2 pr-3 font-medium">ID</th>
-                        <th className="text-left py-2 pr-3 font-medium">Name</th>
-                        <th className="text-left py-2 pr-3 font-medium">Email</th>
-                        <th className="text-left py-2 pr-3 font-medium">Role</th>
-                        <th className="text-left py-2 pr-3 font-medium">Department</th>
-                      </>
-                    )}
                     {popupKind === "tasks" && (
                       <>
                         <th className="text-left py-2 pr-3 font-medium">ID</th>
@@ -685,16 +906,6 @@ export function AdminPanel() {
                   </tr>
                 </thead>
                 <tbody>
-                  {popupKind === "users" && (paginatedPopupItems as User[]).map((user) => (
-                    <tr key={user.id} className="border-b border-border/50 last:border-0">
-                      <td className="py-3 pr-3 text-muted-foreground">#{user.id}</td>
-                      <td className="py-3 pr-3 text-foreground font-medium">{user.name}</td>
-                      <td className="py-3 pr-3 text-muted-foreground">{user.email}</td>
-                      <td className="py-3 pr-3">{user.role || "N/A"}</td>
-                      <td className="py-3 pr-3 text-muted-foreground">{user.department || "-"}</td>
-                    </tr>
-                  ))}
-
                   {popupKind === "tasks" && (paginatedPopupItems as Task[]).map((task) => (
                     <tr key={task.id} className="border-b border-border/50 last:border-0">
                       <td className="py-3 pr-3 text-muted-foreground">#{task.id}</td>
@@ -727,32 +938,245 @@ export function AdminPanel() {
                   ))}
                 </tbody>
               </table>
-            </div>
-
-            <div className="flex items-center justify-between border-t border-border px-6 py-3">
-              <button
-                type="button"
-                onClick={() => setPopupPage((prev) => Math.max(1, prev - 1))}
-                disabled={popupPage === 1}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground disabled:opacity-50"
-              >
-                <ChevronLeft className="w-3.5 h-3.5" />
-                Previous
-              </button>
-              <span className="text-xs text-muted-foreground">Page {popupPage} of {totalPages}</span>
-              <button
-                type="button"
-                onClick={() => setPopupPage((prev) => Math.min(totalPages, prev + 1))}
-                disabled={popupPage === totalPages}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground disabled:opacity-50"
-              >
-                Next
-                <ChevronRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
           </div>
-        </div>
-      )}
+          {popupItems.length > PREVIEW_LIMIT && (
+            <div className="flex items-center justify-between border-t border-border px-6 py-3">
+              <span className="text-xs text-muted-foreground">
+                Showing {paginatedPopupItems.length} of {popupItems.length}
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handlePopupPrevious}
+                  disabled={popupPage <= 1}
+                  className="px-3 py-1.5 rounded-lg border border-border text-xs font-medium text-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  Previous
+                </button>
+                <button
+                  type="button"
+                  onClick={handlePopupNext}
+                  disabled={popupPage >= totalPopupPages}
+                  className="px-3 py-1.5 rounded-lg border border-border text-xs font-medium text-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={popupKind === "users"} onOpenChange={(open) => { if (!open) closePopup(); }}>
+              <DialogContent className="w-[calc(100vw-2.75rem)] sm:w-full max-w-xl h-auto max-h-[90vh] rounded-2xl bg-card border border-border shadow-2xl flex flex-col overflow-hidden p-0">
+                <div className="sticky top-0 z-10 bg-card/95 backdrop-blur-sm border-b border-border px-4 sm:px-5 py-3.5 flex items-center justify-between rounded-t-2xl">
+                  <DialogHeader className="text-left space-y-0">
+                    <DialogTitle className="text-base sm:text-lg font-semibold text-foreground">Create User</DialogTitle>
+                    <DialogDescription className="text-xs text-muted-foreground">
+                      Add a new user account for the system.
+                    </DialogDescription>
+                  </DialogHeader>
+                </div>
+
+                <form onSubmit={handleCreateUser} className="p-4 sm:p-5 space-y-4 sm:space-y-5 flex-1 overflow-y-auto">
+                  {userActionError && (
+                    <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                      {userActionError}
+                    </div>
+                  )}
+
+                  {canManageUsers && (
+                    <>
+                      <div className="space-y-2">
+                        <label className="text-xs font-medium text-foreground">Full Name <span className="text-destructive">*</span></label>
+                        <input
+                          type="text"
+                          value={newUser.name}
+                          onChange={(event) => setNewUser((prev) => ({ ...prev, name: event.target.value }))}
+                          placeholder="Enter full name"
+                          className="w-full px-3.5 py-2.5 bg-muted/50 border border-border rounded-xl text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all"
+                          required
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-xs font-medium text-foreground">Email <span className="text-destructive">*</span></label>
+                        <input
+                          type="email"
+                          value={newUser.email}
+                          onChange={(event) => setNewUser((prev) => ({ ...prev, email: event.target.value }))}
+                          placeholder="Enter email address"
+                          className="w-full px-3.5 py-2.5 bg-muted/50 border border-border rounded-xl text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all"
+                          required
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-xs font-medium text-foreground">Password <span className="text-destructive">*</span></label>
+                        <input
+                          type="password"
+                          value={newUser.password}
+                          onChange={(event) => setNewUser((prev) => ({ ...prev, password: event.target.value }))}
+                          placeholder="Enter password"
+                          minLength={6}
+                          className="w-full px-3.5 py-2.5 bg-muted/50 border border-border rounded-xl text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all"
+                          required
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-xs font-medium text-foreground">Role</label>
+                        <select
+                          value={newUser.role}
+                          onChange={(event) => setNewUser((prev) => ({ ...prev, role: event.target.value }))}
+                          className="w-full px-3.5 py-2.5 bg-muted/50 border border-border rounded-xl text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all"
+                        >
+                          {USER_ROLE_OPTIONS.map((roleOption) => (
+                            <option key={roleOption} value={roleOption}>
+                              {roleOption}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-xs font-medium text-foreground">Department</label>
+                        <input
+                          type="text"
+                          value={newUser.department}
+                          onChange={(event) => setNewUser((prev) => ({ ...prev, department: event.target.value }))}
+                          placeholder="Enter department"
+                          className="w-full px-3.5 py-2.5 bg-muted/50 border border-border rounded-xl text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all"
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  <div className="border-t border-border pt-4">
+                    <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center gap-3 justify-end">
+                      <button
+                        type="button"
+                        onClick={closePopup}
+                        className="w-full sm:w-auto px-6 py-2.5 bg-muted text-foreground rounded-xl text-sm font-medium hover:bg-muted/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={isCreatingUser}
+                        className="flex-1 sm:flex-none px-6 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {isCreatingUser ? "Creating..." : "Create User"}
+                      </button>
+                    </div>
+                  </div>
+                </form>
+              </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(editingUser)} onOpenChange={(open) => { if (!open) closeEditUser(); }}>
+              <DialogContent className="w-[calc(100vw-2.75rem)] sm:w-full max-w-xl h-auto max-h-[90vh] rounded-2xl bg-card border border-border shadow-2xl flex flex-col overflow-hidden p-0">
+                <div className="sticky top-0 z-10 bg-card/95 backdrop-blur-sm border-b border-border px-4 sm:px-5 py-3.5 flex items-center justify-between rounded-t-2xl">
+                  <DialogHeader className="text-left space-y-0">
+                    <DialogTitle className="text-base sm:text-lg font-semibold text-foreground">Edit User</DialogTitle>
+                    <DialogDescription className="text-xs text-muted-foreground">
+                      Update the selected user account. Leave the password blank to keep the current one.
+                    </DialogDescription>
+                  </DialogHeader>
+                </div>
+
+                <form onSubmit={handleUpdateUser} className="p-4 sm:p-5 space-y-4 sm:space-y-5 flex-1 overflow-y-auto">
+                  {editUserError && (
+                    <div className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                      {editUserError}
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium text-foreground">Full Name <span className="text-destructive">*</span></label>
+                    <input
+                      type="text"
+                      value={editUser.name}
+                      onChange={(event) => setEditUser((prev) => ({ ...prev, name: event.target.value }))}
+                      placeholder="Enter full name"
+                      className="w-full px-3.5 py-2.5 bg-muted/50 border border-border rounded-xl text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all"
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium text-foreground">Email <span className="text-destructive">*</span></label>
+                    <input
+                      type="email"
+                      value={editUser.email}
+                      onChange={(event) => setEditUser((prev) => ({ ...prev, email: event.target.value }))}
+                      placeholder="Enter email address"
+                      className="w-full px-3.5 py-2.5 bg-muted/50 border border-border rounded-xl text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all"
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium text-foreground">Password</label>
+                    <input
+                      type="password"
+                      value={editUser.password}
+                      onChange={(event) => setEditUser((prev) => ({ ...prev, password: event.target.value }))}
+                      placeholder="New password (optional)"
+                      minLength={6}
+                      className="w-full px-3.5 py-2.5 bg-muted/50 border border-border rounded-xl text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium text-foreground">Role</label>
+                    <select
+                      value={editUser.role}
+                      onChange={(event) => setEditUser((prev) => ({ ...prev, role: event.target.value }))}
+                      className="w-full px-3.5 py-2.5 bg-muted/50 border border-border rounded-xl text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all"
+                    >
+                      {USER_ROLE_OPTIONS.map((roleOption) => (
+                        <option key={roleOption} value={roleOption}>
+                          {roleOption}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium text-foreground">Department</label>
+                    <input
+                      type="text"
+                      value={editUser.department}
+                      onChange={(event) => setEditUser((prev) => ({ ...prev, department: event.target.value }))}
+                      placeholder="Enter department"
+                      className="w-full px-3.5 py-2.5 bg-muted/50 border border-border rounded-xl text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all"
+                    />
+                  </div>
+
+                  <div className="border-t border-border pt-4">
+                    <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center gap-3 justify-end">
+                      <button
+                        type="button"
+                        onClick={closeEditUser}
+                        className="w-full sm:w-auto px-6 py-2.5 bg-muted text-foreground rounded-xl text-sm font-medium hover:bg-muted/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={isUpdatingUser}
+                        className="flex-1 sm:flex-none px-6 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {isUpdatingUser ? "Saving..." : "Save Changes"}
+                      </button>
+                    </div>
+                  </div>
+                </form>
+              </DialogContent>
+      </Dialog>
+
     </div>
   );
 }
+

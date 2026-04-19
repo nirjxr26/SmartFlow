@@ -79,7 +79,7 @@ export default function Tasks() {
 
   useEffect(() => {
     fetchUsers();
-  }, []);
+  }, [currentUser.id]);
 
   useEffect(() => {
     const searchParams = new URLSearchParams(location.search);
@@ -93,7 +93,11 @@ export default function Tasks() {
 
   const fetchUsers = async () => {
     try {
-      const response = await fetch('http://localhost:8000/backend/users/users.php', {
+      if (!currentUser.id) {
+        return;
+      }
+
+      const response = await fetch(`http://localhost:8000/backend/users/users.php?user_id=${currentUser.id || 0}`, {
         headers: {
           'Authorization': localStorage.getItem('token') || '',
         },

@@ -544,7 +544,7 @@ export default function Approvals() {
     <AppLayout title="Approvals" subtitle="Review and manage pending approval requests.">
       {/* Create Request Modal */}
       {isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
           <div className="w-full max-w-2xl max-h-[92vh] rounded-2xl border border-border bg-card shadow-2xl flex flex-col overflow-hidden">
             <div className="flex items-center justify-between border-b border-border px-4 sm:px-6 py-4">
               <h3 className="text-lg font-semibold text-foreground">Create Approval Request</h3>
@@ -651,7 +651,7 @@ export default function Approvals() {
 
       {/* Edit Request Modal */}
       {isEditModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
           <div className="w-full max-w-2xl max-h-[92vh] rounded-2xl border border-border bg-card shadow-2xl flex flex-col overflow-hidden">
             <div className="flex items-center justify-between border-b border-border px-4 sm:px-6 py-4">
               <h3 className="text-lg font-semibold text-foreground">Modify Approval Request</h3>

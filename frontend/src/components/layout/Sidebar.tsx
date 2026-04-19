@@ -24,6 +24,11 @@ const navItems = [
   { icon: Settings, label: "Settings", path: "/settings" },
 ];
 
+const hasPrivilegedRole = (role?: string) => {
+  const normalized = (role || "").toLowerCase();
+  return normalized.includes("admin") || normalized.includes("hr") || normalized.includes("executive");
+};
+
 interface SidebarProps {
   collapsed?: boolean;
   onCollapsedChange?: (value: boolean) => void;
@@ -60,7 +65,7 @@ export function Sidebar({
         const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
         const localRole = (storedUser?.role || "").toLowerCase();
 
-        if (localRole.includes("admin")) {
+        if (hasPrivilegedRole(localRole)) {
           setIsAdmin(true);
           return;
         }
@@ -77,9 +82,9 @@ export function Sidebar({
         });
         const data = await response.json();
         const role = (data?.user?.role || "").toLowerCase();
-        setIsAdmin(Boolean(data?.success && role.includes("admin")));
+        setIsAdmin(Boolean(data?.success && hasPrivilegedRole(role)));
       } catch (error) {
-        console.error("Failed to resolve admin role:", error);
+        console.error("Failed to resolve privileged role:", error);
         setIsAdmin(false);
       }
     };

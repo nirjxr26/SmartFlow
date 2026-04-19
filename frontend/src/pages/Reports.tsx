@@ -445,7 +445,7 @@ export default function Reports() {
       {/* Filter Backdrop */}
       {isFilterPanelOpen && (
         <div
-          className="fixed inset-0 z-40"
+          className="fixed inset-0 z-40 bg-black/20 backdrop-blur-sm"
           onClick={() => setIsFilterPanelOpen(false)}
         />
       )}

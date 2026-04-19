@@ -43,7 +43,12 @@ export function CreateTaskModal({ isOpen, onClose, onTaskCreated, task }: Create
 
   const fetchUsers = async () => {
     try {
-      const response = await fetch('http://localhost:8000/backend/users/users.php');
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      const response = await fetch(`http://localhost:8000/backend/users/users.php?user_id=${user?.id || 0}`, {
+        headers: {
+          'Authorization': localStorage.getItem('token') || '',
+        },
+      });
       const data = await response.json();
       if (data.success && data.users) {
         setUsers(data.users);

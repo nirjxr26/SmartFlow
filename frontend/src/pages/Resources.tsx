@@ -820,7 +820,7 @@ export default function Resources() {
 
       {/* Create Resource Modal */}
       {isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
           <div className="w-full max-w-2xl max-h-[92vh] rounded-2xl border border-border bg-card shadow-2xl flex flex-col overflow-hidden">
             <div className="flex items-center justify-between border-b border-border px-4 sm:px-6 py-4">
               <h3 className="text-lg font-semibold text-foreground">Add New Resource</h3>
@@ -940,7 +940,7 @@ export default function Resources() {
 
       {/* Edit Resource Modal */}
       {isEditModalOpen && editingResource && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
           <div className="w-full max-w-2xl max-h-[92vh] rounded-2xl border border-border bg-card shadow-2xl flex flex-col overflow-hidden">
             <div className="flex items-center justify-between border-b border-border px-4 sm:px-6 py-4">
               <h3 className="text-lg font-semibold text-foreground">Edit Resource</h3>

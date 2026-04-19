@@ -100,6 +100,23 @@ function flowstone_is_admin_role(?string $role): bool
     return $role !== null && stripos($role, 'admin') !== false;
 }
 
+function flowstone_can_manage_users_role(?string $role): bool
+{
+    if ($role === null) {
+        return false;
+    }
+
+    $normalizedRole = strtolower(trim($role));
+    if ($normalizedRole === '') {
+        return false;
+    }
+
+    return strpos($normalizedRole, 'admin') !== false
+        || strpos($normalizedRole, 'hr') !== false
+        || strpos($normalizedRole, 'human resources') !== false
+        || strpos($normalizedRole, 'executive') !== false;
+}
+
 function flowstone_fetch_task_owner(PDO $pdo, int $taskId): ?array
 {
     if ($taskId <= 0) {
