@@ -216,7 +216,7 @@ Password: password123
 ## Author / Contact
 
 Nirjar Goswami  
-GitHub: https://github.com/Nirjar26
+GitHub: https://github.com/nirjxr26
 
 Swara Shah  
 GitHub: https://github.com/Swara107
